@@ -1,4 +1,4 @@
-const STATIC_CACHE = "market-watch-static-v9";
+const STATIC_CACHE = "market-watch-static-v10";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

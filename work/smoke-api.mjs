@@ -9,6 +9,7 @@ const checks = [
   ["/api/history?symbol=AAPL&range=1M", (data) => data.data?.symbol === "AAPL" && Array.isArray(data.data.points)],
   ["/api/fundamentals?symbol=AAPL", (data) => data.data?.symbol === "AAPL"],
   ["/api/brokers?country=US", (data) => Array.isArray(data.data?.brokers)],
+  ["/api/huggingface/status", (data) => data.data?.connected === false && Array.isArray(data.data?.availableModels)],
   ["/api/diagnostics", (data) => data.data?.backendOnline === true]
 ];
 

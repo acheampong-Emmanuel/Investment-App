@@ -14,7 +14,7 @@
     <meta name="theme-color" content="#11110f">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=settings-categories-1">
+    <link rel="stylesheet" href="styles.css?v=hf-backend-connection-1">
   </head>
   <body>
     <div class="phone-frame">
@@ -298,15 +298,36 @@
               <span>News API key</span>
               <input id="newsKey" type="password" autocomplete="off" placeholder="Optional news and sentiment source">
             </label>
-            <label class="field">
-              <span>Optional Hugging Face token</span>
-              <input id="hfToken" type="password" autocomplete="off" placeholder="hf_ token for optional AI insights">
-            </label>
-            <label class="field">
-              <span>Hugging Face chat model</span>
-              <input id="hfModel" type="text" autocomplete="off" placeholder="google/gemma-2-2b-it:fastest">
-              <small>Uses Hugging Face Inference Providers with automatic routing. Change this if your account has a different free/serverless model available.</small>
-            </label>
+            <section class="hf-connection-panel" aria-labelledby="hfConnectionTitle">
+              <div class="connection-header">
+                <div>
+                  <p class="eyebrow">Secure backend proxy</p>
+                  <h3 id="hfConnectionTitle">Hugging Face Connection</h3>
+                </div>
+                <span class="connection-status" id="hfConnectionStatus">Not Connected</span>
+              </div>
+              <p class="prototype-note">
+                Connect your own Hugging Face account with a fine-grained token that has Inference Providers permission. The token is sent only to the backend, stored server-side, and may be subject to Hugging Face usage limits or billing.
+              </p>
+              <label class="field">
+                <span>Access token</span>
+                <input id="hfConnectToken" type="password" autocomplete="off" placeholder="hf_ fine-grained token">
+                <small>The browser never stores this token. It is used only for the backend connect request.</small>
+              </label>
+              <label class="field">
+                <span>Model/provider</span>
+                <select id="hfModel"></select>
+                <small>AI output is analytical assistance only, not financial advice or guaranteed prediction.</small>
+              </label>
+              <div class="button-row stacked">
+                <button class="primary-action" id="connectHfButton" type="button">Connect Hugging Face</button>
+                <button class="secondary-action" id="testHfButton" type="button">Test Connection</button>
+                <button class="danger-action" id="disconnectHfButton" type="button">Disconnect</button>
+              </div>
+              <p class="prototype-note" id="hfPrivacyNote">
+                When AI features run, the backend sends only sanitized market data needed for inference. It does not send passwords, API keys, or unnecessary personal data.
+              </p>
+            </section>
             <button class="secondary-action" id="testApiButton" type="button">Test API connection</button>
           </div>
         </details>
@@ -462,7 +483,7 @@
       });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-    <script src="data.js?v=settings-categories-1"></script>
-    <script src="app.js?v=settings-categories-1"></script>
+    <script src="data.js?v=hf-backend-connection-1"></script>
+    <script src="app.js?v=hf-backend-connection-1"></script>
   </body>
 </html>

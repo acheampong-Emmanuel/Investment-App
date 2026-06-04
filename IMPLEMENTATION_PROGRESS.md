@@ -100,3 +100,41 @@ work/
 - `node work/verify.mjs`: passed.
 - `node work/smoke-api.mjs`: passed.
 - Browser QA at `http://127.0.0.1:8768/index.html`: top header removed, hero still renders with greeting, Settings route opens the drawer, hero settings icon opens the drawer, 6 glass Settings categories render, accordion behavior works, no body/shell/hero/ticker/drawer horizontal overflow, and no browser console errors.
+
+## Secure Hugging Face Connection Pass
+
+- Date: 2026-06-04
+- Objective: let users connect their own Hugging Face account from Settings while keeping access tokens off the frontend and out of public GitHub commits.
+
+### Completed
+
+- Removed browser-side Hugging Face API calls and stopped saving Hugging Face tokens in local settings.
+- Added a browser migration that deletes any old `hfToken` and `hfModel` values from saved frontend settings.
+- Added a glass-style `Hugging Face Connection` panel inside `Settings > Data sources and AI`.
+- Added Settings controls for connection status, masked token entry, model/provider selection, connect, test, and disconnect.
+- Added backend routes:
+  - `GET /api/huggingface/status`
+  - `POST /api/huggingface/connect`
+  - `POST /api/huggingface/test`
+  - `POST /api/huggingface/disconnect`
+  - `POST /api/ai/analyze`
+  - `POST /api/ai/recommend`
+  - `POST /api/ai/risk-score`
+  - `POST /api/ai/summarize-market`
+- Added server-side Hugging Face token validation before saving.
+- Added encrypted backend token storage using AES-GCM. Production persistence requires `HF_TOKEN_ENCRYPTION_KEY`; without it, tokens remain encrypted in memory only.
+- Added HttpOnly session cookies for Hugging Face connection sessions.
+- Added sanitized AI input payloads so only minimal market, quote, preference, and portfolio fields are sent to Hugging Face.
+- Added modular AI pipeline configuration with task type, model, input shaping, output normalization, timeout handling, retry for temporary provider errors, and clear frontend-facing error messages.
+- Added AI result limitations, confidence notes, source timestamps, and retry behavior in the asset detail AI section.
+- Updated docs and `.env.example` for secure Hugging Face deployment configuration.
+- Added `work/hf-security-tests.mjs` with mocked Hugging Face router coverage for no token, invalid token, valid token, disconnected state, provider failure, timeout, rate limit, empty response, malformed response, and frontend token-access checks.
+
+### Validation
+
+- `node --check app.js`: passed.
+- `node --check server.js`: passed.
+- `node work/verify.mjs`: passed.
+- `node work/hf-security-tests.mjs`: passed.
+- `API_BASE_URL=http://127.0.0.1:4180 node work/smoke-api.mjs`: passed, including `GET /api/huggingface/status`.
+- Browser QA at `http://127.0.0.1:4180/index.html`: Hugging Face panel visible in Settings, status starts as `Not Connected`, token input is password-masked, test/disconnect are disabled until connected, model selector is populated, no top header, no horizontal overflow, no browser console errors, and invalid token format shows a clear Settings error.

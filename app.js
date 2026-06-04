@@ -15,7 +15,6 @@
   const ASSET_TYPES = ["All", "Stocks", "ETFs", "Crypto", "Indices", "Treasuries", "Bonds", "Commodities"];
   const TIME_RANGES = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "Max"];
   const DEFAULT_HF_MODEL = "google/gemma-2-2b-it:fastest";
-  const HUGGING_FACE_CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions";
   const HERO_PRESETS = {
     cover: "assets/hero-cover-reference.jpg",
     mist: "assets/market-mist-flow.jpg",
@@ -271,9 +270,9 @@
       return `${this.baseUrl()}${path}${query.toString() ? `?${query.toString()}` : ""}`;
     },
     async request(path, params = {}) {
-      const response = await fetch(this.url(path, params), { cache: "no-store" });
-      if (!response.ok) throw new Error(`Backend request failed: ${response.status}`);
-      const payload = await response.json();
+      const response = await fetch(this.url(path, params), { cache: "no-store", credentials: "include" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error?.message || `Backend request failed: ${response.status}`);
       if (!payload.ok) throw new Error(payload.error?.message || "Backend returned an error");
       return payload.data;
     },
@@ -281,10 +280,11 @@
       const response = await fetch(`${this.baseUrl()}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(body)
       });
-      if (!response.ok) throw new Error(`Backend request failed: ${response.status}`);
-      const payload = await response.json();
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error?.message || `Backend request failed: ${response.status}`);
       if (!payload.ok) throw new Error(payload.error?.message || "Backend returned an error");
       return payload.data;
     },
@@ -300,7 +300,15 @@
     compareAssets(items, range) { return this.post("/api/compare", { items, range }); },
     getDiagnostics() { return this.request("/api/diagnostics"); },
     getNews(params) { return this.request("/api/news", params); },
-    getAiInsight(payload) { return this.post("/api/ai-insight", payload); }
+    getAiInsight(payload) { return this.post("/api/ai-insight", payload); },
+    getHuggingFaceStatus() { return this.request("/api/huggingface/status"); },
+    connectHuggingFace(payload) { return this.post("/api/huggingface/connect", payload); },
+    testHuggingFace(payload) { return this.post("/api/huggingface/test", payload); },
+    disconnectHuggingFace() { return this.post("/api/huggingface/disconnect"); },
+    analyzeWithAi(payload) { return this.post("/api/ai/analyze", payload); },
+    recommendWithAi(payload) { return this.post("/api/ai/recommend", payload); },
+    riskScoreWithAi(payload) { return this.post("/api/ai/risk-score", payload); },
+    summarizeMarketWithAi(payload) { return this.post("/api/ai/summarize-market", payload); }
   };
 
   const state = {
@@ -320,6 +328,7 @@
     compare: [],
     settings: {},
     notifications: {},
+    huggingFace: { connected: false, model: DEFAULT_HF_MODEL, availableModels: [DEFAULT_HF_MODEL] },
     charts: {},
     greeting: "Good evening",
     todayLabel: "",
@@ -405,6 +414,7 @@
     scheduleAutoRefresh();
     registerServiceWorker();
     checkLocalProxyStatus();
+    refreshHuggingFaceStatus();
   }
 
   function bindEvents() {
@@ -456,6 +466,9 @@
     });
     bindSettingsCategories();
     byId("testApiButton").addEventListener("click", testApiConnection);
+    byId("connectHfButton").addEventListener("click", connectHuggingFace);
+    byId("testHfButton").addEventListener("click", testHuggingFaceConnection);
+    byId("disconnectHfButton").addEventListener("click", disconnectHuggingFace);
     byId("clearSettingsButton").addEventListener("click", clearSavedSettings);
     byId("clearCacheButton").addEventListener("click", clearCache);
     byId("requestNotificationPermission").addEventListener("click", requestNotificationPermission);
@@ -935,100 +948,56 @@
   };
 
   const huggingFaceService = {
-    async fetchInsight(asset, quote, settings) {
-      const model = safeText(settings.hfModel || DEFAULT_HF_MODEL);
-      const response = await fetch(HUGGING_FACE_CHAT_COMPLETIONS_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${settings.hfToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model,
-          stream: false,
-          max_tokens: 320,
-          temperature: 0.2,
-          messages: [
-            {
-              role: "system",
-              content: "You create concise educational market research summaries. Do not provide financial advice, price targets, or buy/sell recommendations. Return only compact JSON."
-            },
-            {
-              role: "user",
-              content: JSON.stringify({
-                instruction: "Analyze this instrument using only the supplied fields. If data is missing, say so. Return JSON with summary, sentimentScore, riskFactors, bullishFactors, bearishFactors, dataQuality.",
-                asset: {
-                  ticker: asset.ticker,
-                  name: asset.name,
-                  type: asset.type,
-                  exchange: asset.exchange,
-                  country: asset.country,
-                  sector: asset.sector,
-                  risk: asset.risk,
-                  currency: asset.currency
-                },
-                quote: {
-                  price: quote?.price ?? null,
-                  change: quote?.change ?? null,
-                  changePercent: quote?.changePercent ?? null,
-                  volume: quote?.volume ?? null,
-                  source: quote?.source ?? null,
-                  status: quote?.status ?? null
-                }
-              })
-            }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        throw new Error(huggingFaceErrorMessage(response.status, detail));
+    async refreshStatus() {
+      try {
+        state.huggingFace = await apiClient.getHuggingFaceStatus();
+      } catch (error) {
+        state.huggingFace = {
+          connected: false,
+          model: DEFAULT_HF_MODEL,
+          availableModels: [DEFAULT_HF_MODEL],
+          privacyNote: "Start the backend server to connect Hugging Face securely. Static GitHub Pages cannot store tokens safely."
+        };
       }
-
-      const payload = await response.json();
-      const text = payload?.choices?.[0]?.message?.content || "";
-      return normalizeAiInsight(parseModelJson(text), text, model);
+      return state.huggingFace;
     },
-    async testConnection(settings) {
-      const model = safeText(settings.hfModel || DEFAULT_HF_MODEL);
-      const response = await fetch(HUGGING_FACE_CHAT_COMPLETIONS_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${settings.hfToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model,
-          stream: false,
-          max_tokens: 24,
-          temperature: 0,
-          messages: [{ role: "user", content: "Reply with only: connected" }]
-        })
+    connect(token, model) {
+      return apiClient.connectHuggingFace({ token, model });
+    },
+    testConnection(model) {
+      return apiClient.testHuggingFace({ model });
+    },
+    disconnect() {
+      return apiClient.disconnectHuggingFace();
+    },
+    async fetchInsight(asset, quote) {
+      return apiClient.analyzeWithAi({
+        asset: minimalAssetForAi(asset),
+        quote: minimalQuoteForAi(quote),
+        country: state.country,
+        priorityPreference: getSettings().priorityPreference
       });
-      if (!response.ok) throw new Error(huggingFaceErrorMessage(response.status, await response.text().catch(() => "")));
-      return response.json();
     }
   };
 
   const aiInsightService = {
     async fetchAiInsight(asset) {
       const settings = getSettings();
-      if (!settings.hfToken) {
+      if (!state.huggingFace.connected) {
         return {
           available: false,
-          message: "AI insight is disabled. Add a Hugging Face token in Settings > Data sources and AI to enable this feature."
+          message: "AI insight is disabled. Connect Hugging Face in Settings > Data sources and AI to enable backend-powered AI assistance."
         };
       }
       try {
         const quote = state.quotes[asset.id] || unavailableQuote(asset, "Quote not loaded yet.");
-        return await huggingFaceService.fetchInsight(asset, quote, settings);
+        return await huggingFaceService.fetchInsight(asset, quote);
       } catch (error) {
         const failedFetch = /failed to fetch|networkerror|load failed/i.test(error?.message || "");
         return {
           available: false,
           message: failedFetch
-            ? "Hugging Face could not be reached from this browser. If the token and model are correct, use a secure backend proxy for the API call."
+            ? "The secure backend could not be reached. Start the backend server or retry after deployment."
             : error?.message || "Hugging Face AI insight could not be generated right now."
         };
       }
@@ -1727,17 +1696,33 @@
     byId("verificationAlerts").checked = settings.verificationAlerts !== false;
     byId("notificationTime").value = settings.notificationTime || "07:00";
     byId("notificationFrequency").value = settings.notificationFrequency || "daily";
+    renderHuggingFaceConnection();
     setStoredPlaceholder("alphaKey", settings.alphaKey);
     setStoredPlaceholder("finnhubKey", settings.finnhubKey);
     setStoredPlaceholder("fmpKey", settings.fmpKey);
     setStoredPlaceholder("twelveKey", settings.twelveKey);
     setStoredPlaceholder("polygonKey", settings.polygonKey);
     setStoredPlaceholder("newsKey", settings.newsKey);
-    setStoredPlaceholder("hfToken", settings.hfToken);
-    byId("hfModel").value = settings.hfModel || DEFAULT_HF_MODEL;
     byId("cacheDuration").value = settings.cacheDuration || "900";
     glassSelectManager.enhanceAll();
     glassSelectManager.refreshAll();
+  }
+
+  function renderHuggingFaceConnection() {
+    const status = state.huggingFace || {};
+    const models = status.availableModels?.length ? status.availableModels : [status.model || DEFAULT_HF_MODEL];
+    byId("hfModel").innerHTML = uniqueBy(models.map((model) => ({ value: model })), "value")
+      .map((item) => `<option value="${escapeHTML(item.value)}">${escapeHTML(item.value)}</option>`)
+      .join("");
+    byId("hfModel").value = status.model || DEFAULT_HF_MODEL;
+    byId("hfConnectToken").value = "";
+    byId("hfConnectionStatus").textContent = status.connected ? "Connected" : "Not Connected";
+    byId("hfConnectionStatus").classList.toggle("connected", Boolean(status.connected));
+    byId("disconnectHfButton").disabled = !status.connected;
+    byId("testHfButton").disabled = !status.connected;
+    if (byId("hfPrivacyNote")) {
+      byId("hfPrivacyNote").textContent = status.privacyNote || "When AI features run, the backend sends only sanitized market data needed for inference.";
+    }
   }
 
   function summarizeCoverage() {
@@ -2248,13 +2233,14 @@
   }
 
   function renderAiPage() {
-    const settings = getSettings();
+    const hf = state.huggingFace || {};
     byId("aiPagePanel").innerHTML = `
       <h3>AI Insight</h3>
-      <p class="prototype-note">Optional summaries only. Not financial advice.</p>
-      <p class="${settings.hfToken ? "success-message" : "data-message"}">
-        ${escapeHTML(settings.hfToken ? "Hugging Face token saved locally. Open an asset detail view to request an AI insight from the selected model." : "AI Insight is disabled. Add a supported AI provider token in Settings > Data sources and AI to enable it.")}
+      <p class="prototype-note">Optional backend-powered summaries only. Not financial advice.</p>
+      <p class="${hf.connected ? "success-message" : "data-message"}">
+        ${escapeHTML(hf.connected ? `Hugging Face is connected through the secure backend proxy using ${hf.model || DEFAULT_HF_MODEL}. Open an asset detail view to request AI analysis.` : "AI Insight is disabled. Connect Hugging Face in Settings > Data sources and AI to enable it.")}
       </p>
+      <p class="prototype-note">AI results combine with live data, history, volatility, trend, risk profile, market region, and your watch preferences. They do not replace your own research.</p>
       <button class="primary-action" type="button" id="aiSettingsOpen">Open Settings</button>
     `;
     byId("aiSettingsOpen").addEventListener("click", openSettings);
@@ -2419,6 +2405,7 @@
         renderDetail(assetId);
       });
     });
+    byId("detailContent").querySelector("[data-ai-retry]")?.addEventListener("click", () => renderDetail(assetId));
     chartService.renderPriceChart("detailPriceChart", history, `${asset.ticker} price`);
     chartService.renderVolumeChart("detailVolumeChart", history, `${asset.ticker} volume`);
   }
@@ -2448,18 +2435,22 @@
     return `
       <section class="ai-section">
         <h3>AI Insight</h3>
-        <p class="prototype-note">Automated research summary. Not financial advice.</p>
+        <p class="prototype-note">Automated backend analysis. Analytical assistance only, not financial advice.</p>
         ${ai.available ? `
           ${stat("Sentiment score", ai.sentimentScore)}
           <p>${escapeHTML(ai.summary)}</p>
           <p class="prototype-note">${escapeHTML(ai.modelLabel)}</p>
+          <p class="prototype-note">${escapeHTML(ai.confidenceNote || "Use this as one layer beside live data, history, volatility, trend, risk profile, region, and your preferences.")}</p>
         ` : `<p class="data-message">${escapeHTML(ai.message)}</p>`}
         <div class="stats-grid">
           ${stat("Risk factors", insightList(ai.riskFactors) || "Requires connected quote data")}
           ${stat("Bullish factors", insightList(ai.bullishFactors) || "Limited by supplied data")}
           ${stat("Bearish factors", insightList(ai.bearishFactors) || "Limited by supplied data")}
           ${stat("Data quality", ai.dataQuality || "Model output depends on available source data")}
+          ${stat("Source timestamp", ai.sourceTimestamp ? formatTime(ai.sourceTimestamp) : "AI not connected")}
+          ${stat("Limitations", ai.limitations || "AI features are disabled until Hugging Face is connected")}
         </div>
+        <button class="secondary-action" type="button" data-ai-retry>Retry AI analysis</button>
       </section>
     `;
   }
@@ -2685,8 +2676,6 @@
       twelveKey: byId("twelveKey").value || existing.twelveKey || "",
       polygonKey: byId("polygonKey").value || existing.polygonKey || "",
       newsKey: byId("newsKey").value || existing.newsKey || "",
-      hfToken: byId("hfToken").value || existing.hfToken || "",
-      hfModel: safeText(byId("hfModel").value) || existing.hfModel || DEFAULT_HF_MODEL,
       theme: byId("themeSetting").value,
       defaultCountry: byId("defaultCountry").value,
       cacheDuration: byId("cacheDuration").value,
@@ -2719,7 +2708,7 @@
     renderMorningBrief();
     renderNotificationCenter();
     renderAiPage();
-    byId("settingsStatus").innerHTML = `<p class="success-message">Settings saved. Keys are stored locally for this prototype only.</p>`;
+    byId("settingsStatus").innerHTML = `<p class="success-message">Settings saved. Market-data keys remain local prototype settings. Hugging Face tokens are handled only by the backend connection flow.</p>`;
     showToast("Settings saved");
   }
 
@@ -2762,7 +2751,6 @@
       defaultCountry: "US",
       cacheDuration: "900",
       refreshInterval: "900",
-      hfModel: DEFAULT_HF_MODEL,
       priorityPreference: "balanced",
       enableNotifications: false,
       morningBriefNotifications: true,
@@ -2776,10 +2764,81 @@
       heroAccent: null
     };
     const saved = readJson(STORAGE.settings, {});
+    if (saved.hfToken || saved.hfModel) {
+      delete saved.hfToken;
+      delete saved.hfModel;
+      localStorage.setItem(STORAGE.settings, JSON.stringify(saved));
+    }
     if (!saved.heroIdentityVersion && (!saved.heroPreset || saved.heroPreset === "mist") && !saved.heroImageUrl) {
       saved.heroPreset = "cover";
     }
     return { ...defaults, ...saved, heroIdentityVersion: 2 };
+  }
+
+  async function refreshHuggingFaceStatus() {
+    await huggingFaceService.refreshStatus();
+    if (byId("hfConnectionStatus")) renderHuggingFaceConnection();
+    renderAiPage();
+  }
+
+  async function connectHuggingFace() {
+    const token = byId("hfConnectToken").value.trim();
+    const model = byId("hfModel").value || DEFAULT_HF_MODEL;
+    if (!token) {
+      byId("settingsStatus").innerHTML = `<p class="data-message">Enter a fine-grained Hugging Face token with Inference Providers permission.</p>`;
+      return;
+    }
+    setHfControlsBusy(true, "Connecting...");
+    try {
+      state.huggingFace = await huggingFaceService.connect(token, model);
+      byId("hfConnectToken").value = "";
+      renderHuggingFaceConnection();
+      renderAiPage();
+      byId("settingsStatus").innerHTML = `<p class="success-message">Hugging Face connected through the backend. Token was not stored in the browser.</p>`;
+      showToast("Hugging Face connected");
+    } catch (error) {
+      byId("settingsStatus").innerHTML = `<p class="data-message">${escapeHTML(huggingFaceErrorMessage(0, error.message || "Connection failed"))}</p>`;
+    } finally {
+      setHfControlsBusy(false);
+    }
+  }
+
+  async function testHuggingFaceConnection() {
+    const model = byId("hfModel").value || DEFAULT_HF_MODEL;
+    setHfControlsBusy(true, "Testing...");
+    try {
+      const result = await huggingFaceService.testConnection(model);
+      await refreshHuggingFaceStatus();
+      byId("settingsStatus").innerHTML = `<p class="success-message">Hugging Face test passed with ${escapeHTML(result.model || model)} in ${escapeHTML(result.latencyMs || "N/A")} ms.</p>`;
+    } catch (error) {
+      byId("settingsStatus").innerHTML = `<p class="data-message">${escapeHTML(huggingFaceErrorMessage(0, error.message || "Hugging Face test failed"))}</p>`;
+    } finally {
+      setHfControlsBusy(false);
+    }
+  }
+
+  async function disconnectHuggingFace() {
+    setHfControlsBusy(true, "Disconnecting...");
+    try {
+      state.huggingFace = await huggingFaceService.disconnect();
+      renderHuggingFaceConnection();
+      renderAiPage();
+      byId("settingsStatus").innerHTML = `<p class="success-message">Hugging Face disconnected and backend token storage cleared.</p>`;
+      showToast("Hugging Face disconnected");
+    } catch (error) {
+      byId("settingsStatus").innerHTML = `<p class="data-message">${escapeHTML(error.message || "Disconnect failed")}</p>`;
+    } finally {
+      setHfControlsBusy(false);
+    }
+  }
+
+  function setHfControlsBusy(busy, label = "") {
+    ["connectHfButton", "testHfButton", "disconnectHfButton"].forEach((id) => {
+      const button = byId(id);
+      if (!button) return;
+      button.disabled = busy || (id !== "connectHfButton" && !state.huggingFace.connected);
+    });
+    if (busy && label) byId("settingsStatus").innerHTML = `<p class="data-message">${escapeHTML(label)}</p>`;
   }
 
   async function testApiConnection() {
@@ -2789,7 +2848,6 @@
     if (settings.finnhubKey) tests.push(["Finnhub", fetchFinnhubQuote(getAsset("aapl"), settings.finnhubKey)]);
     if (settings.fmpKey) tests.push(["FMP", fetchFmpQuote(getAsset("aapl"), settings.fmpKey)]);
     if (settings.twelveKey) tests.push(["Twelve Data", fetchTwelveDataQuote(getAsset("aapl"), settings.twelveKey)]);
-    if (settings.hfToken) tests.push(["Hugging Face AI", huggingFaceService.testConnection(settings)]);
     tests.push(["CoinGecko", cryptoDataService.fetchCryptoPrice(getAsset("btc"))]);
     const results = await Promise.allSettled(tests.map(([, promise]) => promise));
     byId("settingsStatus").innerHTML = tests.map(([name], index) => {
@@ -3204,11 +3262,37 @@
     return text ? [text] : [];
   }
 
+  function minimalAssetForAi(asset = {}) {
+    return {
+      ticker: safeText(asset.ticker),
+      name: safeText(asset.name),
+      type: safeText(asset.type),
+      exchange: safeText(asset.exchange),
+      country: safeText(asset.country),
+      sector: safeText(asset.sector),
+      risk: safeText(asset.risk),
+      currency: safeText(asset.currency)
+    };
+  }
+
+  function minimalQuoteForAi(quote = {}) {
+    return {
+      price: finiteOrNull(quote.price),
+      change: finiteOrNull(quote.change),
+      changePercent: finiteOrNull(quote.changePercent),
+      volume: finiteOrNull(quote.volume),
+      source: safeText(quote.source),
+      status: safeText(quote.status),
+      lastUpdated: safeText(quote.lastUpdated || quote.cachedAt || quote.asOf)
+    };
+  }
+
   function insightList(items) {
     return normalizeInsightList(items).join(" / ");
   }
 
   function huggingFaceErrorMessage(status, detail) {
+    if (!status) return safeText(detail) || "Hugging Face backend request failed.";
     if (status === 401 || status === 403) return "Hugging Face token was rejected. Add a token with Inference Providers permission in Settings > Data sources and AI.";
     if (status === 404) return "The selected Hugging Face model was not found or is not available through Inference Providers. Try another chat model.";
     if (status === 429) return "Hugging Face rate limit reached. Wait a bit or choose another available model.";
@@ -3678,7 +3762,7 @@
   }
 
   function apiKeySummary(settings) {
-    const count = ["alphaKey", "finnhubKey", "fmpKey", "twelveKey", "polygonKey", "newsKey", "hfToken"].filter((key) => settings[key]).length;
+    const count = ["alphaKey", "finnhubKey", "fmpKey", "twelveKey", "polygonKey", "newsKey"].filter((key) => settings[key]).length;
     return count ? `${count} saved locally` : "None saved";
   }
 

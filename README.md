@@ -84,6 +84,14 @@ work/smoke-api.mjs  Backend smoke tests
 - `POST /api/compare`
 - `GET /api/news?symbol=AAPL`
 - `POST /api/ai-insight`
+- `GET /api/huggingface/status`
+- `POST /api/huggingface/connect`
+- `POST /api/huggingface/test`
+- `POST /api/huggingface/disconnect`
+- `POST /api/ai/analyze`
+- `POST /api/ai/recommend`
+- `POST /api/ai/risk-score`
+- `POST /api/ai/summarize-market`
 - `GET /api/diagnostics`
 - `GET /api/proxy?url=...`
 
@@ -119,10 +127,22 @@ TWELVE_DATA_API_KEY=
 FMP_API_KEY=
 POLYGON_API_KEY=
 NEWS_API_KEY=
-HUGGINGFACE_API_TOKEN=
+HF_TOKEN_ENCRYPTION_KEY=
+DEFAULT_HF_MODEL=google/gemma-2-2b-it:fastest
+HF_MODEL_OPTIONS=google/gemma-2-2b-it:fastest,meta-llama/Llama-3.1-8B-Instruct,openai/gpt-oss-20b
 ```
 
 No real secrets are committed.
+
+## Hugging Face Connection
+
+Users can connect their own Hugging Face account from `Settings > Data sources and AI`.
+
+The browser sends the fine-grained `hf_` token only once to `POST /api/huggingface/connect`. The frontend never stores the token in `localStorage`, `sessionStorage`, IndexedDB, logs, or public code. The backend validates the token with Hugging Face Inference Providers before saving it to a server-side session.
+
+For production, set `HF_TOKEN_ENCRYPTION_KEY` as a strong secret environment variable. With that key present, backend Hugging Face session tokens are encrypted and persisted in `.runtime/hf-sessions.json`. Without it, tokens are encrypted only in memory and disappear when the server restarts.
+
+AI routes send only sanitized market, quote, preference, and portfolio fields needed for inference. AI output is labeled as analytical assistance, not financial advice, and the app continues to work without Hugging Face connected.
 
 ## Data Coverage
 
@@ -133,7 +153,7 @@ Known limitations:
 - Ghana and Nigeria local listings are included as research metadata, but live prices require official exchange feeds, licensed data providers, or a backend connector.
 - Some fields such as market cap, P/E ratio, dividend yield, and expense ratio are unavailable in public no-key mode.
 - Yahoo chart requests are routed through the local backend proxy because browser CORS may block direct frontend access.
-- AI Insight is optional and disabled unless a supported token/provider is configured.
+- AI Insight is optional and disabled unless the user connects Hugging Face through the secure backend Settings flow.
 
 ## UI Structure
 

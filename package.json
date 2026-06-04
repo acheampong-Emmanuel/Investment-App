@@ -7,7 +7,7 @@
     "dev": "node server.js",
     "start": "node server.js",
     "build": "node work/verify.mjs",
-    "check": "node --check app.js && node --check server.js && node work/verify.mjs",
+    "check": "node --check app.js && node --check server.js && node work/verify.mjs && node work/hf-security-tests.mjs",
     "smoke": "node work/smoke-api.mjs"
   },
   "engines": {

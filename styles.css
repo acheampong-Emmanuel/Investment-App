@@ -3654,6 +3654,59 @@ details[open].why-panel,
   margin: 0;
 }
 
+.hf-connection-panel {
+  display: grid;
+  gap: 13px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.12));
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)),
+    color-mix(in srgb, var(--accent) 8%, rgba(17, 17, 16, 0.74));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 14px 28px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(var(--glass-blur, 24px)) saturate(136%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(136%);
+}
+
+.connection-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.connection-header h3 {
+  margin: 2px 0 0;
+  color: #fff8ef;
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.connection-status {
+  min-height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 248, 239, 0.72);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.connection-status.connected {
+  border-color: color-mix(in srgb, var(--accent) 46%, rgba(255, 255, 255, 0.18));
+  background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.08));
+  color: #fff8ef;
+}
+
+.button-row.stacked {
+  grid-template-columns: 1fr;
+}
+
 @keyframes settingsCategoryIn {
   from {
     opacity: 0;

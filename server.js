@@ -3,6 +3,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const crypto = require("crypto");
 
 loadEnv();
 
@@ -18,6 +19,20 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 120);
 const ALLOWED_ORIGINS = new Set((process.env.ALLOWED_ORIGINS || "http://localhost:4173,file://").split(",").map((item) => item.trim()));
 const ALLOWED_PROXY_HOSTS = new Set(["stooq.com", "api.coingecko.com", "query1.finance.yahoo.com"]);
+const HF_ROUTER_BASE_URL = process.env.HF_ROUTER_BASE_URL || "https://router.huggingface.co/v1";
+const DEFAULT_HF_MODEL = process.env.DEFAULT_HF_MODEL || "google/gemma-2-2b-it:fastest";
+const HF_MODEL_OPTIONS = (process.env.HF_MODEL_OPTIONS || [
+  "google/gemma-2-2b-it:fastest",
+  "meta-llama/Llama-3.1-8B-Instruct",
+  "openai/gpt-oss-20b"
+].join(",")).split(",").map((item) => item.trim()).filter(Boolean);
+const HF_TIMEOUT_MS = Number(process.env.HF_TIMEOUT_MS || 30000);
+const HF_SESSION_TTL_MS = Number(process.env.HF_SESSION_TTL_MS || 1000 * 60 * 60 * 24 * 14);
+const HF_SESSION_COOKIE = "git_hf_session";
+const HF_SESSION_DIR = path.join(ROOT, ".runtime");
+const HF_SESSION_FILE = path.join(HF_SESSION_DIR, "hf-sessions.json");
+const HF_STORAGE_MODE = process.env.HF_TOKEN_ENCRYPTION_KEY ? "encrypted-file" : "encrypted-memory";
+const HF_ENCRYPTION_KEY = crypto.createHash("sha256").update(process.env.HF_TOKEN_ENCRYPTION_KEY || crypto.randomBytes(32)).digest();
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
@@ -38,8 +53,10 @@ const countryConfigs = dataContext.window.countryConfigs;
 const assetCatalog = dataContext.window.assetCatalog;
 const cache = new Map();
 const rateBuckets = new Map();
+const hfSessions = new Map();
 const startedAt = new Date().toISOString();
 const providerAttempts = [];
+loadHfSessions();
 
 const exchangeMetadata = [
   { exchangeCode: "NASDAQ", name: "Nasdaq Stock Market", country: "US", website: "https://www.nasdaq.com", timezone: "America/New_York", currency: "USD", notes: "US exchange data is often available from public or free-tier providers." },
@@ -105,9 +122,17 @@ async function handleApi(req, res, requestUrl) {
   if (route === "GET /api/news") return sendJson(res, 200, ok(getUnavailableNews(requiredAsset(requestUrl))));
   if (route === "GET /api/diagnostics") return sendJson(res, 200, ok(getDiagnostics()));
   if (route === "GET /api/proxy") return proxyRequest(requestUrl, res);
+  if (route === "GET /api/huggingface/status") return sendJson(res, 200, ok(huggingFaceStatus(req, res)));
   if (route === "POST /api/watchlist/refresh") return sendJson(res, 200, ok(await refreshWatchlist(await readBody(req))));
   if (route === "POST /api/compare") return sendJson(res, 200, ok(await compareAssets(await readBody(req))));
-  if (route === "POST /api/ai-insight") return sendJson(res, 200, ok(await getAiInsight(await readBody(req))));
+  if (route === "POST /api/huggingface/connect") return sendJson(res, 200, ok(await connectHuggingFace(req, res, await readBody(req))));
+  if (route === "POST /api/huggingface/test") return sendJson(res, 200, ok(await testHuggingFace(req, res, await readBody(req))));
+  if (route === "POST /api/huggingface/disconnect") return sendJson(res, 200, ok(disconnectHuggingFace(req, res)));
+  if (route === "POST /api/ai/analyze") return sendJson(res, 200, ok(await runAiPipeline(req, await readBody(req), "analyze")));
+  if (route === "POST /api/ai/recommend") return sendJson(res, 200, ok(await runAiPipeline(req, await readBody(req), "recommend")));
+  if (route === "POST /api/ai/risk-score") return sendJson(res, 200, ok(await runAiPipeline(req, await readBody(req), "risk-score")));
+  if (route === "POST /api/ai/summarize-market") return sendJson(res, 200, ok(await runAiPipeline(req, await readBody(req), "summarize-market")));
+  if (route === "POST /api/ai-insight") return sendJson(res, 200, ok(await getAiInsight(req, await readBody(req))));
   sendJson(res, 404, errorResponse("NOT_FOUND", "Route not found"));
 }
 
@@ -307,13 +332,381 @@ async function compareAssets(body) {
   };
 }
 
-async function getAiInsight(body) {
+function huggingFaceStatus(req, res) {
+  const sessionId = getOrCreateHfSessionId(req, res, { create: false });
+  const session = sessionId ? activeHfSession(sessionId) : null;
+  return {
+    connected: Boolean(session),
+    model: session?.model || DEFAULT_HF_MODEL,
+    provider: session?.provider || "auto",
+    connectedAt: session?.connectedAt || null,
+    expiresAt: session?.expiresAt || null,
+    storageMode: HF_STORAGE_MODE,
+    availableModels: HF_MODEL_OPTIONS,
+    privacyNote: "When connected, only sanitized market and portfolio fields needed for inference are sent through the backend to Hugging Face. Tokens stay server-side and are never returned to the browser."
+  };
+}
+
+async function connectHuggingFace(req, res, body) {
+  const token = normalizeToken(body.token);
+  const model = allowedHfModel(body.model);
+  const provider = sanitizeText(body.provider || "auto", 40) || "auto";
+  if (!token) throw httpError(400, "HF_TOKEN_REQUIRED", "Enter a Hugging Face access token.");
+  if (!/^hf_[A-Za-z0-9_]+$/.test(token)) throw httpError(400, "HF_TOKEN_FORMAT", "Hugging Face tokens usually start with hf_. Check the token and try again.");
+  await validateHuggingFaceToken(token, model);
+  const sessionId = getOrCreateHfSessionId(req, res, { create: true });
+  const now = new Date();
+  hfSessions.set(sessionId, {
+    encryptedToken: encryptToken(token),
+    model,
+    provider,
+    connectedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + HF_SESSION_TTL_MS).toISOString()
+  });
+  persistHfSessions();
+  return {
+    connected: true,
+    model,
+    provider,
+    connectedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + HF_SESSION_TTL_MS).toISOString(),
+    storageMode: HF_STORAGE_MODE,
+    availableModels: HF_MODEL_OPTIONS,
+    privacyNote: "Hugging Face token validated and stored server-side. The token is never returned to the browser."
+  };
+}
+
+async function testHuggingFace(req, res, body = {}) {
+  const session = requireHfSession(req);
+  const model = allowedHfModel(body.model || session.model);
+  const token = decryptToken(session.encryptedToken);
+  const started = Date.now();
+  const result = await callHuggingFaceChat(token, {
+    model,
+    max_tokens: 24,
+    temperature: 0,
+    messages: [{ role: "user", content: "Reply with only: connected" }]
+  });
+  session.model = model;
+  session.lastTestedAt = new Date().toISOString();
+  persistHfSessions();
+  return {
+    connected: true,
+    model,
+    latencyMs: Date.now() - started,
+    responsePreview: sanitizeText(extractHfText(result), 80) || "connected",
+    limitations: "Connection test only. Usage may still be subject to Hugging Face provider availability, quotas, and billing limits."
+  };
+}
+
+function disconnectHuggingFace(req, res) {
+  const sessionId = getHfSessionId(req);
+  if (sessionId) hfSessions.delete(sessionId);
+  persistHfSessions();
+  clearHfCookie(res);
+  return {
+    connected: false,
+    message: "Hugging Face token disconnected and removed from backend session storage."
+  };
+}
+
+async function getAiInsight(req, body) {
   const asset = assetByAny(body.symbol || body.assetId);
   if (!asset) return { available: false, message: "AI Insight is disabled for unknown assets." };
-  if (!process.env.HUGGINGFACE_API_TOKEN) {
-    return { available: false, message: "AI Insight is disabled. Add a supported AI provider token in Advanced Settings or backend environment to enable it." };
+  return runAiPipeline(req, { ...body, asset }, "analyze");
+}
+
+async function runAiPipeline(req, body, taskType) {
+  const session = requireHfSession(req);
+  const token = decryptToken(session.encryptedToken);
+  const pipeline = aiPipelineConfig(taskType, body, session);
+  const started = Date.now();
+  const payload = await callHuggingFaceChat(token, pipeline.request);
+  const rawText = extractHfText(payload);
+  const parsed = parseModelJson(rawText);
+  const normalized = normalizeAiResult(taskType, parsed, rawText, pipeline, Date.now() - started);
+  session.lastUsedAt = new Date().toISOString();
+  persistHfSessions();
+  return normalized;
+}
+
+function requireHfSession(req) {
+  const sessionId = getHfSessionId(req);
+  const session = sessionId ? activeHfSession(sessionId) : null;
+  if (!session) {
+    throw httpError(401, "HF_NOT_CONNECTED", "Connect Hugging Face in Settings before using AI features.");
   }
-  return { available: false, message: "Backend AI insight route is configured, but model execution is intentionally disabled until a supported provider token and model policy are configured." };
+  return session;
+}
+
+function aiPipelineConfig(taskType, body, session) {
+  const model = allowedHfModel(body.model || session.model);
+  const safe = sanitizeAiInput(body);
+  const taskInstructions = {
+    analyze: "Analyze the supplied market instrument and return JSON with summary, sentimentScore, riskFactors, bullishFactors, bearishFactors, dataQuality, limitations.",
+    recommend: "Rank the supplied investment watch items for research priority only. Return JSON with summary, rankedItems, reasons, dataQuality, limitations. Do not provide buy/sell/hold instructions.",
+    "risk-score": "Explain portfolio or asset risk using supplied fields only. Return JSON with summary, riskScore, riskLevel, riskFactors, mitigations, dataQuality, limitations.",
+    "summarize-market": "Summarize the supplied market snapshot. Return JSON with summary, keyMovers, risks, opportunities, dataQuality, limitations."
+  };
+  return {
+    taskType,
+    model,
+    sourceTimestamp: new Date().toISOString(),
+    request: {
+      model,
+      stream: false,
+      max_tokens: taskType === "recommend" ? 520 : 420,
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: "You provide educational investment research assistance. Never claim guaranteed returns, never give financial advice, and never reveal hidden reasoning. Return compact JSON only."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            task: taskInstructions[taskType] || taskInstructions.analyze,
+            privacy: "Use only these sanitized fields. No personal identifiers, API keys, or passwords are included.",
+            input: safe
+          })
+        }
+      ]
+    }
+  };
+}
+
+function sanitizeAiInput(body = {}) {
+  const asset = body.asset || assetByAny(body.symbol || body.assetId) || {};
+  const quote = body.quote || {};
+  const market = body.market || {};
+  const portfolio = Array.isArray(body.portfolio) ? body.portfolio.slice(0, 20) : [];
+  return {
+    asset: {
+      ticker: sanitizeText(asset.ticker || asset.symbol || body.symbol, 24),
+      name: sanitizeText(asset.name, 120),
+      type: sanitizeText(asset.type || asset.assetType, 40),
+      exchange: sanitizeText(asset.exchange, 60),
+      country: sanitizeText(asset.country, 8),
+      sector: sanitizeText(asset.sector, 80),
+      risk: sanitizeText(asset.risk, 40),
+      currency: sanitizeText(asset.currency, 12)
+    },
+    quote: {
+      price: finiteOrNull(quote.price),
+      change: finiteOrNull(quote.change),
+      changePercent: finiteOrNull(quote.changePercent),
+      volume: finiteOrNull(quote.volume),
+      source: sanitizeText(quote.source, 100),
+      status: sanitizeText(quote.status, 60),
+      lastUpdated: sanitizeText(quote.lastUpdated || quote.asOf || quote.cachedAt, 40)
+    },
+    market: {
+      country: sanitizeText(market.country || body.country, 40),
+      region: sanitizeText(market.region, 80),
+      selectedType: sanitizeText(market.selectedType || body.type, 40),
+      timestamp: sanitizeText(market.timestamp || body.timestamp, 40)
+    },
+    preferences: {
+      priorityPreference: sanitizeText(body.priorityPreference, 80),
+      riskPreference: sanitizeText(body.riskPreference, 80)
+    },
+    portfolio: portfolio.map((item) => ({
+      ticker: sanitizeText(item.ticker || item.symbol, 24),
+      type: sanitizeText(item.type || item.assetType, 40),
+      weight: finiteOrNull(item.weight),
+      units: finiteOrNull(item.units)
+    }))
+  };
+}
+
+function normalizeAiResult(taskType, data, fallbackText, pipeline, latencyMs) {
+  const summary = sanitizeText(data?.summary, 700) || sanitizeText(fallbackText, 700) || "Hugging Face returned an empty response.";
+  return {
+    available: true,
+    taskType,
+    summary,
+    sentimentScore: sanitizeText(data?.sentimentScore, 80) || "Qualitative only",
+    riskScore: finiteOrNull(data?.riskScore),
+    riskLevel: sanitizeText(data?.riskLevel, 80) || null,
+    rankedItems: Array.isArray(data?.rankedItems) ? data.rankedItems.slice(0, 8).map((item) => ({
+      label: sanitizeText(item.label || item.ticker || item.name, 80),
+      reason: sanitizeText(item.reason, 220)
+    })) : [],
+    riskFactors: normalizeTextList(data?.riskFactors),
+    bullishFactors: normalizeTextList(data?.bullishFactors || data?.opportunities),
+    bearishFactors: normalizeTextList(data?.bearishFactors || data?.risks),
+    mitigations: normalizeTextList(data?.mitigations),
+    dataQuality: sanitizeText(data?.dataQuality, 240) || "Generated from sanitized app data only.",
+    limitations: sanitizeText(data?.limitations, 260) || "AI output is analytical assistance only, not financial advice or a prediction guarantee.",
+    confidenceNote: "Use this as one layer beside live data, history, volatility, trend, risk profile, region, and your preferences.",
+    sourceTimestamp: pipeline.sourceTimestamp,
+    modelLabel: `Hugging Face model: ${pipeline.model}`,
+    latencyMs
+  };
+}
+
+function normalizeTextList(value) {
+  if (Array.isArray(value)) return value.map((item) => sanitizeText(item, 220)).filter(Boolean).slice(0, 5);
+  const text = sanitizeText(value, 220);
+  return text ? [text] : [];
+}
+
+async function validateHuggingFaceToken(token, model) {
+  try {
+    await callHuggingFaceChat(token, {
+      model,
+      stream: false,
+      max_tokens: 24,
+      temperature: 0,
+      messages: [{ role: "user", content: "Reply with only: connected" }]
+    });
+  } catch (error) {
+    throw httpError(error.status || 502, error.code || "HF_VALIDATE_FAILED", error.message || "Hugging Face token validation failed.");
+  }
+}
+
+async function callHuggingFaceChat(token, payload, attempt = 0) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HF_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${HF_ROUTER_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "Global-Investment-Tracker/1.0"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      const mapped = mapHuggingFaceError(response.status, text);
+      if ((response.status === 503 || response.status === 504) && attempt < 1) return callHuggingFaceChat(token, payload, attempt + 1);
+      const error = httpError(mapped.status, mapped.code, mapped.message);
+      error.detail = text;
+      throw error;
+    }
+    return text ? JSON.parse(text) : {};
+  } catch (error) {
+    if (error.name === "AbortError") throw httpError(504, "HF_TIMEOUT", "Hugging Face request timed out. Try again or choose another model.");
+    if (error.status) throw error;
+    throw httpError(502, "HF_PROVIDER_ERROR", "Hugging Face provider request failed. Check connectivity and try again.");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function mapHuggingFaceError(status, detail) {
+  const text = sanitizeText(detail, 220);
+  if (status === 401 || status === 403) return { status, code: "HF_TOKEN_INVALID", message: "Hugging Face token was rejected, expired, or lacks Inference Providers permission." };
+  if (status === 404) return { status, code: "HF_MODEL_NOT_FOUND", message: "Selected Hugging Face model is not available through Inference Providers." };
+  if (status === 408 || status === 504) return { status: 504, code: "HF_TIMEOUT", message: "Hugging Face provider timed out. Try again or choose another model." };
+  if (status === 429) return { status, code: "HF_RATE_LIMIT", message: "Hugging Face rate limit reached. Wait, change model, or check account limits." };
+  if (status === 402) return { status, code: "HF_BILLING_LIMIT", message: "Hugging Face billing or quota limit reached for this account." };
+  if (status === 422) return { status, code: "HF_MODEL_INPUT_ERROR", message: "The selected model rejected the request format. Try another model." };
+  if (status === 503) return { status, code: "HF_MODEL_LOADING", message: "Hugging Face model or provider is loading or temporarily unavailable." };
+  return { status: status || 502, code: "HF_PROVIDER_ERROR", message: text ? `Hugging Face provider error: ${text}` : "Hugging Face provider error." };
+}
+
+function extractHfText(payload) {
+  return sanitizeText(payload?.choices?.[0]?.message?.content || payload?.generated_text || "", 2000);
+}
+
+function parseModelJson(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = String(text).match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function getHfSessionId(req) {
+  const cookies = Object.fromEntries(String(req.headers.cookie || "").split(";").map((part) => {
+    const [key, ...rest] = part.trim().split("=");
+    return [key, decodeURIComponent(rest.join("=") || "")];
+  }).filter(([key]) => key));
+  return cookies[HF_SESSION_COOKIE] || "";
+}
+
+function getOrCreateHfSessionId(req, res, options = {}) {
+  const existing = getHfSessionId(req);
+  if (existing) return existing;
+  if (!options.create) return "";
+  const sessionId = crypto.randomBytes(24).toString("base64url");
+  res.setHeader("Set-Cookie", `${HF_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.round(HF_SESSION_TTL_MS / 1000)}${NODE_ENV === "production" ? "; Secure" : ""}`);
+  return sessionId;
+}
+
+function clearHfCookie(res) {
+  res.setHeader("Set-Cookie", `${HF_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${NODE_ENV === "production" ? "; Secure" : ""}`);
+}
+
+function activeHfSession(sessionId) {
+  const session = hfSessions.get(sessionId);
+  if (!session) return null;
+  if (Date.parse(session.expiresAt) < Date.now()) {
+    hfSessions.delete(sessionId);
+    persistHfSessions();
+    return null;
+  }
+  return session;
+}
+
+function encryptToken(token) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", HF_ENCRYPTION_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+  return {
+    iv: iv.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64"),
+    value: encrypted.toString("base64")
+  };
+}
+
+function decryptToken(record) {
+  const decipher = crypto.createDecipheriv("aes-256-gcm", HF_ENCRYPTION_KEY, Buffer.from(record.iv, "base64"));
+  decipher.setAuthTag(Buffer.from(record.tag, "base64"));
+  return Buffer.concat([decipher.update(Buffer.from(record.value, "base64")), decipher.final()]).toString("utf8");
+}
+
+function loadHfSessions() {
+  if (HF_STORAGE_MODE !== "encrypted-file" || !fs.existsSync(HF_SESSION_FILE)) return;
+  try {
+    const records = JSON.parse(fs.readFileSync(HF_SESSION_FILE, "utf8"));
+    Object.entries(records).forEach(([sessionId, session]) => {
+      if (session?.encryptedToken && Date.parse(session.expiresAt) > Date.now()) hfSessions.set(sessionId, session);
+    });
+  } catch {
+    hfSessions.clear();
+  }
+}
+
+function persistHfSessions() {
+  if (HF_STORAGE_MODE !== "encrypted-file") return;
+  fs.mkdirSync(HF_SESSION_DIR, { recursive: true });
+  const records = Object.fromEntries([...hfSessions.entries()].filter(([, session]) => Date.parse(session.expiresAt) > Date.now()));
+  fs.writeFileSync(HF_SESSION_FILE, JSON.stringify(records, null, 2), { mode: 0o600 });
+}
+
+function normalizeToken(value) {
+  return String(value || "").trim();
+}
+
+function allowedHfModel(value) {
+  const model = sanitizeText(value || DEFAULT_HF_MODEL, 140);
+  return HF_MODEL_OPTIONS.includes(model) ? model : DEFAULT_HF_MODEL;
+}
+
+function sanitizeText(value, maxLength = 500) {
+  return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
 
 function getUnavailableNews(asset) {
@@ -333,10 +726,17 @@ function getDiagnostics() {
     dataMode: PUBLIC_DATA_MODE ? "Public source mode" : "Advanced provider mode",
     defaultProvider: DEFAULT_PROVIDER,
     cacheEntries: cache.size,
-    missingApiKeys: ["ALPHA_VANTAGE_API_KEY", "FINNHUB_API_KEY", "TWELVE_DATA_API_KEY", "FMP_API_KEY", "POLYGON_API_KEY", "NEWS_API_KEY", "HUGGINGFACE_API_TOKEN"].filter((key) => !process.env[key]),
+    missingApiKeys: ["ALPHA_VANTAGE_API_KEY", "FINNHUB_API_KEY", "TWELVE_DATA_API_KEY", "FMP_API_KEY", "POLYGON_API_KEY", "NEWS_API_KEY", "HF_TOKEN_ENCRYPTION_KEY"].filter((key) => !process.env[key]),
+    huggingFace: {
+      tokenStorage: HF_STORAGE_MODE,
+      connectedSessions: hfSessions.size,
+      routerBaseUrl: HF_ROUTER_BASE_URL,
+      defaultModel: DEFAULT_HF_MODEL,
+      availableModels: HF_MODEL_OPTIONS
+    },
     recentProviderAttempts: providerAttempts.slice(-20),
     allowedProxyHosts: Array.from(ALLOWED_PROXY_HOSTS),
-    suggestedFix: "Use public source mode out of the box. Add optional API keys for deeper coverage. Official-only local exchange listings require licensed feeds."
+    suggestedFix: "Use public source mode out of the box. Add optional API keys for deeper coverage. Official-only local exchange listings require licensed feeds. Add HF_TOKEN_ENCRYPTION_KEY in production for encrypted Hugging Face session persistence."
   };
 }
 
@@ -699,7 +1099,10 @@ function rateLimit(req, res) {
 function applyCors(req, res) {
   const origin = req.headers.origin;
   const allowed = !origin || ALLOWED_ORIGINS.has(origin) || origin === "null" || NODE_ENV === "development";
-  if (allowed) res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  if (allowed) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    if (origin && origin !== "null") res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
@@ -710,7 +1113,8 @@ function sendHeaders(res, status, contentType, cacheControl = "no-store") {
     "Cache-Control": cacheControl,
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
-    "Access-Control-Allow-Origin": res.getHeader("Access-Control-Allow-Origin") || "*"
+    "Access-Control-Allow-Origin": res.getHeader("Access-Control-Allow-Origin") || "*",
+    ...(res.getHeader("Access-Control-Allow-Credentials") ? { "Access-Control-Allow-Credentials": "true" } : {})
   });
 }
 

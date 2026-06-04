@@ -18,6 +18,14 @@ All API routes return JSON and never include provider secrets.
 - `POST /api/compare`
 - `GET /api/news?symbol=AAPL`
 - `POST /api/ai-insight`
+- `GET /api/huggingface/status`
+- `POST /api/huggingface/connect`
+- `POST /api/huggingface/test`
+- `POST /api/huggingface/disconnect`
+- `POST /api/ai/analyze`
+- `POST /api/ai/recommend`
+- `POST /api/ai/risk-score`
+- `POST /api/ai/summarize-market`
 - `GET /api/diagnostics`
 - `GET /api/proxy?url=https%3A%2F%2Fstooq.com%2F...`
 
@@ -76,3 +84,11 @@ All API routes return JSON and never include provider secrets.
 ## Unavailable Data Policy
 
 Unavailable financial data is returned as `null`, listed in `fieldsUnavailable`, and explained in `warning` or `error`. The API does not fabricate prices, fundamentals, history, broker availability, predictions, or AI insight.
+
+## Hugging Face Security
+
+Hugging Face user tokens are accepted only by `POST /api/huggingface/connect` and are never returned by any API response. The backend validates the token before saving it, stores it encrypted in a backend session, and deletes it through `POST /api/huggingface/disconnect`.
+
+Production deployments should set `HF_TOKEN_ENCRYPTION_KEY`. AI inference calls use the server-side token and route through Hugging Face Inference Providers at `https://router.huggingface.co/v1/chat/completions` by default.
+
+AI endpoints sanitize inputs and send the minimum needed market data. Responses include limitations and should be treated as analytical assistance, not financial advice.
