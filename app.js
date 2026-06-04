@@ -321,6 +321,8 @@
     settings: {},
     notifications: {},
     charts: {},
+    greeting: "Good evening",
+    todayLabel: "",
     diagnostics: {
       mode: "Public source mode",
       activeProvider: "Public no-key sources",
@@ -421,8 +423,8 @@
       renderTodayBrief();
       showToast("IPO verification status refreshed");
     });
-    byId("themeToggle").addEventListener("click", () => themeManager.toggle());
-    byId("settingsOpen").addEventListener("click", openSettings);
+    byId("themeToggle")?.addEventListener("click", () => themeManager.toggle());
+    byId("settingsOpen")?.addEventListener("click", openSettings);
     byId("settingsClose").addEventListener("click", closeDrawers);
     byId("detailClose").addEventListener("click", closeDrawers);
     byId("modalBackdrop").addEventListener("click", closeDrawers);
@@ -452,6 +454,7 @@
       event.preventDefault();
       saveSettings();
     });
+    bindSettingsCategories();
     byId("testApiButton").addEventListener("click", testApiConnection);
     byId("clearSettingsButton").addEventListener("click", clearSavedSettings);
     byId("clearCacheButton").addEventListener("click", clearCache);
@@ -676,7 +679,7 @@
         return { ...cached, sourceMode: "Cached data", message: `Using cached data from ${formatTime(cached.cachedAt)}.` };
       }
 
-      const unavailable = unavailableQuote(asset, "Live data is unavailable for this asset right now. Add an API key in Advanced Settings for deeper coverage, or try another asset.");
+      const unavailable = unavailableQuote(asset, "Live data is unavailable for this asset right now. Add an API key in Settings > Data sources and AI for deeper coverage, or try another asset.");
       diagnosticsService.recordUnavailable();
       return unavailable;
     },
@@ -870,7 +873,7 @@
       state.diagnostics.publicSourceStatus = "Some sources unavailable";
       state.diagnostics.suggestedFix = /cors|failed to fetch|network/i.test(message)
         ? "This public data source could not be reached directly from the browser. For production, route this request through a secure backend proxy."
-        : "Try another asset, retry later, or add an optional advanced API key in Advanced Settings.";
+        : "Try another asset, retry later, or add an optional advanced API key in Settings > Data sources and AI.";
     },
     recordCacheUse(cached) {
       state.diagnostics.cacheStatus = `Using cached data from ${formatTime(cached.cachedAt)}.`;
@@ -879,7 +882,7 @@
     recordUnavailable() {
       state.diagnostics.cacheStatus = "No usable cache";
       state.diagnostics.publicSourceStatus = "Data unavailable";
-      state.diagnostics.suggestedFix = "Add an API key in Advanced Settings for deeper coverage, retry later, or try another asset.";
+      state.diagnostics.suggestedFix = "Add an API key in Settings > Data sources and AI for deeper coverage, retry later, or try another asset.";
     },
     recordCoverageGap(asset) {
       state.diagnostics.cacheStatus = "No public endpoint configured";
@@ -1014,7 +1017,7 @@
       if (!settings.hfToken) {
         return {
           available: false,
-          message: "AI insight is disabled. Add a Hugging Face token in Advanced Settings to enable this feature."
+          message: "AI insight is disabled. Add a Hugging Face token in Settings > Data sources and AI to enable this feature."
         };
       }
       try {
@@ -1617,8 +1620,8 @@
       status: price === null ? "Unavailable" : "Success",
       fieldsAvailable: fieldLabels.filter((field) => fields[field] !== null && fields[field] !== undefined),
       fieldsUnavailable: fieldLabels.filter((field) => fields[field] === null || fields[field] === undefined),
-      error: price === null ? "Live data is unavailable for this asset right now. Add an API key in Advanced Settings for deeper coverage, or try another asset." : null,
-      message: price === null ? "Live data is unavailable for this asset right now. Add an API key in Advanced Settings for deeper coverage, or try another asset." : ""
+      error: price === null ? "Live data is unavailable for this asset right now. Add an API key in Settings > Data sources and AI for deeper coverage, or try another asset." : null,
+      message: price === null ? "Live data is unavailable for this asset right now. Add an API key in Settings > Data sources and AI for deeper coverage, or try another asset." : ""
     };
   }
 
@@ -1797,7 +1800,7 @@
       </div>
       <div class="hero-cover-copy">
         <span class="hero-brand-mark">GI</span>
-        <p class="hero-greeting">${escapeHTML(byId("timeGreeting").textContent || "Good evening")}</p>
+        <p class="hero-greeting">${escapeHTML(state.greeting || "Good evening")}</p>
         <span class="hero-pill">Recommended</span>
         <h2>Market<br>Opportunities</h2>
         <p>${escapeHTML(config.name)} watch brief with ${escapeHTML(score)}% live coverage.</p>
@@ -2250,9 +2253,9 @@
       <h3>AI Insight</h3>
       <p class="prototype-note">Optional summaries only. Not financial advice.</p>
       <p class="${settings.hfToken ? "success-message" : "data-message"}">
-        ${escapeHTML(settings.hfToken ? "Hugging Face token saved locally. Open an asset detail view to request an AI insight from the selected model." : "AI Insight is disabled. Add a supported AI provider token in Advanced Settings to enable it.")}
+        ${escapeHTML(settings.hfToken ? "Hugging Face token saved locally. Open an asset detail view to request an AI insight from the selected model." : "AI Insight is disabled. Add a supported AI provider token in Settings > Data sources and AI to enable it.")}
       </p>
-      <button class="primary-action" type="button" id="aiSettingsOpen">Advanced Settings</button>
+      <button class="primary-action" type="button" id="aiSettingsOpen">Open Settings</button>
     `;
     byId("aiSettingsOpen").addEventListener("click", openSettings);
   }
@@ -2260,12 +2263,27 @@
   function renderGreeting() {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-    byId("timeGreeting").textContent = greeting;
-    byId("todayDate").textContent = new Intl.DateTimeFormat(undefined, {
+    const todayLabel = new Intl.DateTimeFormat(undefined, {
       weekday: "long",
       month: "short",
       day: "numeric"
     }).format(new Date());
+    state.greeting = greeting;
+    state.todayLabel = todayLabel;
+    if (byId("timeGreeting")) byId("timeGreeting").textContent = greeting;
+    if (byId("todayDate")) byId("todayDate").textContent = todayLabel;
+  }
+
+  function bindSettingsCategories() {
+    document.querySelectorAll(".settings-category").forEach((category) => {
+      category.addEventListener("toggle", () => {
+        if (!category.open) return;
+        glassSelectManager.closeAll();
+        document.querySelectorAll(".settings-category").forEach((sibling) => {
+          if (sibling !== category) sibling.open = false;
+        });
+      });
+    });
   }
 
   function renderAssetCard(asset) {
@@ -3191,7 +3209,7 @@
   }
 
   function huggingFaceErrorMessage(status, detail) {
-    if (status === 401 || status === 403) return "Hugging Face token was rejected. Add a token with Inference Providers permission in Advanced Settings.";
+    if (status === 401 || status === 403) return "Hugging Face token was rejected. Add a token with Inference Providers permission in Settings > Data sources and AI.";
     if (status === 404) return "The selected Hugging Face model was not found or is not available through Inference Providers. Try another chat model.";
     if (status === 429) return "Hugging Face rate limit reached. Wait a bit or choose another available model.";
     const shortDetail = safeText(detail).slice(0, 160);

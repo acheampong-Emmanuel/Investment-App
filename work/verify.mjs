@@ -78,7 +78,7 @@ const checks = {
   apiClient: app.includes("const apiClient") && ["getHealth", "getCountries", "getMarketOverview", "searchAssets", "getQuote", "getHistory", "getFundamentals", "getBrokers", "refreshWatchlist", "compareAssets", "getDiagnostics", "getNews", "getAiInsight"].every((name) => app.includes(name)),
   setupFiles: fs.existsSync("package.json") && fs.existsSync(".env.example") && fs.existsSync("API.md"),
   backendRoutes: ["/api/health", "/api/countries", "/api/market-overview", "/api/search", "/api/quote", "/api/history", "/api/fundamentals", "/api/brokers", "/api/watchlist/refresh", "/api/compare", "/api/news", "/api/ai-insight", "/api/diagnostics"].every((route) => server.includes(route)),
-  advancedSettings: html.includes("Advanced Settings") && html.includes("Polygon.io") && html.includes("News API") && html.includes("cacheDuration") && html.includes("hfModel"),
+  advancedSettings: ["Display and market", "Data sources and AI", "Hero image", "Notifications", "Storage and maintenance"].every((label) => html.includes(label)) && html.includes("Polygon.io") && html.includes("News API") && html.includes("cacheDuration") && html.includes("hfModel"),
   huggingFaceApi: app.includes("HUGGING_FACE_CHAT_COMPLETIONS_URL") && app.includes("router.huggingface.co/v1/chat/completions") && app.includes("DEFAULT_HF_MODEL"),
   diagnosticsPanel: html.includes("diagnosticsPanel") && app.includes("function renderDiagnostics"),
   trustGovernance: html.includes("todayBriefPanel") && html.includes("ipoPanel") && html.includes("learnPanel") && html.includes("sourceExplorerPanel") && app.includes("function renderTodayBrief") && app.includes("function confidenceScoreFor") && app.includes("function freshnessFor") && app.includes("ipoSourceDirectory"),

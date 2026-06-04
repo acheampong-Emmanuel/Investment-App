@@ -69,3 +69,34 @@ work/
 - `node work/verify.mjs`: passed.
 - `node work/smoke-api.mjs`: passed.
 - Browser QA at `http://127.0.0.1:8768/index.html`: no startup errors, no body/shell/hero/ticker horizontal overflow, 9 glass selects initialized, duplicate home/watchlist controls absent, settings drawer visible with no horizontal overflow and scroll reset to top.
+
+## Header Removal And Settings Submenu Pass
+
+- Date: 2026-06-04
+- Objective: remove the top greeting/settings header from the mobile UI and move the corresponding controls into a simpler categorized Settings experience.
+
+### Completed
+
+- Removed the top app header containing the greeting, date, theme toggle, and GI settings avatar.
+- Kept the greeting inside the hero cover so the home screen still feels contextual without the extra header bar.
+- Moved theme selection into the Settings drawer under `Display and market`.
+- Reworked the Settings drawer into glass-style sub-submenus:
+  - `Display and market`
+  - `Data sources and AI`
+  - `Watch priority`
+  - `Hero image`
+  - `Notifications`
+  - `Storage and maintenance`
+- Added accordion behavior so opening one Settings category closes the others and keeps the drawer easier to scan on iPhone.
+- Updated user-facing copy from `Advanced Settings` to the simplified `Settings` language.
+- Added blur-backed glass styling to the new Settings categories so they match the rest of the interface.
+- Bumped asset query strings and the service-worker cache version so GitHub Pages and installed PWA users receive the update more reliably.
+- Updated the verification script to recognize the new Settings category layout.
+
+### Validation
+
+- `node --check app.js`: passed.
+- `node --check server.js`: passed.
+- `node work/verify.mjs`: passed.
+- `node work/smoke-api.mjs`: passed.
+- Browser QA at `http://127.0.0.1:8768/index.html`: top header removed, hero still renders with greeting, Settings route opens the drawer, hero settings icon opens the drawer, 6 glass Settings categories render, accordion behavior works, no body/shell/hero/ticker/drawer horizontal overflow, and no browser console errors.

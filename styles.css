@@ -3570,6 +3570,101 @@ details[open].why-panel,
   -webkit-backdrop-filter: blur(16px);
 }
 
+/* Settings category submenus */
+.settings-form {
+  align-content: start;
+}
+
+.settings-category {
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.12));
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
+    color-mix(in srgb, var(--accent) 6%, rgba(17, 17, 16, 0.72));
+  backdrop-filter: blur(var(--glass-blur, 24px)) saturate(132%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(132%);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.settings-category > summary {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.settings-category > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-category > summary::after {
+  content: "+";
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.12));
+  font-size: 1.15rem;
+  font-weight: 900;
+  transition: transform var(--duration-normal, 220ms) var(--ease-emphasized, ease), background var(--duration-normal, 220ms) var(--ease-standard, ease);
+}
+
+.settings-category[open] > summary::after {
+  content: "-";
+  transform: rotate(180deg);
+  background: color-mix(in srgb, var(--accent) 52%, rgba(255, 255, 255, 0.16));
+}
+
+.settings-category summary b {
+  display: block;
+  color: #fff8ef;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+
+.settings-category summary small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 248, 239, 0.56);
+  line-height: 1.3;
+}
+
+.settings-category-body {
+  display: grid;
+  gap: 13px;
+  padding: 0 14px 16px;
+  animation: settingsCategoryIn var(--duration-normal, 220ms) var(--ease-emphasized, ease) both;
+}
+
+.settings-category-body > .secondary-action,
+.settings-category-body > .danger-action {
+  width: 100%;
+}
+
+.settings-category-body .prototype-note {
+  margin: 0;
+}
+
+@keyframes settingsCategoryIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Final touchscreen polish and consistency audit layer */
 :root,
 [data-theme="dark"],

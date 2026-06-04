@@ -14,21 +14,11 @@
     <meta name="theme-color" content="#11110f">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=touch-polish-5">
+    <link rel="stylesheet" href="styles.css?v=settings-categories-1">
   </head>
   <body>
     <div class="phone-frame">
     <div class="app-shell">
-      <header class="app-header">
-        <div>
-          <h1 id="timeGreeting">Good evening</h1>
-          <p class="subtitle" id="todayDate">Global Investment Tracker</p>
-        </div>
-        <div class="header-actions">
-          <button class="icon-button glass-button" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">◐</button>
-          <button class="avatar-button" id="settingsOpen" type="button" aria-label="Open settings" title="Settings">GI</button>
-        </div>
-      </header>
 
       <main class="view-stage" id="viewStage">
         <section class="page-view active home-view" id="homeView" data-page="home" aria-labelledby="homeTitle">
@@ -160,13 +150,13 @@
         <section class="page-view settings-view" id="settingsView" data-page="settings" aria-labelledby="settingsTitle" hidden>
           <section class="section-title">
             <div>
-              <p class="eyebrow">Power user controls</p>
+              <p class="eyebrow">Organized controls</p>
               <h2 id="settingsTitle">Settings</h2>
             </div>
-            <button class="primary-action" id="settingsPageOpen" type="button">Advanced Settings</button>
+            <button class="primary-action" id="settingsPageOpen" type="button">Open Settings</button>
           </section>
           <section class="settings-landing">
-            <p>Basic app features work without API keys using public online sources where available. API keys are optional for deeper coverage.</p>
+            <p>Manage display, hero image, data sources, watch priorities, notifications, and local app storage from one organized settings panel.</p>
             <div class="settings-shortcuts">
               <button class="secondary-action" type="button" data-page-action="diagnostics">Data Sources</button>
               <button class="secondary-action" type="button" data-page-action="brokers">Where to Buy</button>
@@ -209,99 +199,126 @@
     <aside class="settings-drawer" id="settingsDrawer" aria-label="Settings panel" aria-modal="true" role="dialog" hidden>
       <div class="drawer-header">
         <div>
-          <p class="eyebrow">Power user controls</p>
-          <h2>Advanced Settings</h2>
+          <p class="eyebrow">Organized controls</p>
+          <h2>Settings</h2>
         </div>
         <button class="icon-button" id="settingsClose" type="button" aria-label="Close settings">×</button>
       </div>
 
       <form id="settingsForm" class="settings-form">
-        <label class="field">
-          <span>API provider</span>
-          <select id="providerSelect">
-            <option value="auto">Auto: user key, public API, cache</option>
-            <option value="stooq">Stooq public market data</option>
-            <option value="coingecko">CoinGecko public crypto data</option>
-            <option value="alphavantage">Alpha Vantage</option>
-            <option value="finnhub">Finnhub</option>
-            <option value="fmp">Financial Modeling Prep</option>
-            <option value="twelvedata">Twelve Data</option>
-            <option value="polygon">Polygon.io</option>
-            <option value="newsapi">NewsAPI</option>
-          </select>
-        </label>
+        <details class="settings-category" open>
+          <summary>
+            <span>
+              <b>Display and market</b>
+              <small>Theme, default country, cache, and refresh timing.</small>
+            </span>
+          </summary>
+          <div class="settings-category-body">
+            <label class="field">
+              <span>Theme setting</span>
+              <select id="themeSetting">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
 
-        <label class="field">
-          <span>Alpha Vantage API key</span>
-          <input id="alphaKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
-        </label>
-        <label class="field">
-          <span>Finnhub API key</span>
-          <input id="finnhubKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
-        </label>
-        <label class="field">
-          <span>Financial Modeling Prep API key</span>
-          <input id="fmpKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
-        </label>
-        <label class="field">
-          <span>Twelve Data API key</span>
-          <input id="twelveKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
-        </label>
-        <label class="field">
-          <span>Polygon.io API key</span>
-          <input id="polygonKey" type="password" autocomplete="off" placeholder="Optional advanced provider">
-        </label>
-        <label class="field">
-          <span>News API key</span>
-          <input id="newsKey" type="password" autocomplete="off" placeholder="Optional news and sentiment source">
-        </label>
-        <label class="field">
-          <span>Optional Hugging Face token</span>
-          <input id="hfToken" type="password" autocomplete="off" placeholder="hf_ token for optional AI insights">
-        </label>
-        <label class="field">
-          <span>Hugging Face chat model</span>
-          <input id="hfModel" type="text" autocomplete="off" placeholder="google/gemma-2-2b-it:fastest">
-          <small>Uses Hugging Face Inference Providers with automatic routing. Change this if your account has a different free/serverless model available.</small>
-        </label>
+            <label class="field">
+              <span>Default country</span>
+              <select id="defaultCountry"></select>
+            </label>
 
-        <label class="field">
-          <span>Theme setting</span>
-          <select id="themeSetting">
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
+            <label class="field">
+              <span>Cache duration</span>
+              <select id="cacheDuration">
+                <option value="900">15 minutes</option>
+                <option value="1800">30 minutes</option>
+                <option value="3600">1 hour</option>
+                <option value="21600">6 hours</option>
+              </select>
+            </label>
 
-        <label class="field">
-          <span>Default country</span>
-          <select id="defaultCountry"></select>
-        </label>
+            <label class="field">
+              <span>Data refresh interval</span>
+              <select id="refreshInterval">
+                <option value="manual">Manual only</option>
+                <option value="300">5 minutes</option>
+                <option value="900">15 minutes</option>
+                <option value="1800">30 minutes</option>
+                <option value="3600">1 hour</option>
+              </select>
+            </label>
+          </div>
+        </details>
 
-        <label class="field">
-          <span>Cache duration</span>
-          <select id="cacheDuration">
-            <option value="900">15 minutes</option>
-            <option value="1800">30 minutes</option>
-            <option value="3600">1 hour</option>
-            <option value="21600">6 hours</option>
-          </select>
-        </label>
+        <details class="settings-category">
+          <summary>
+            <span>
+              <b>Data sources and AI</b>
+              <small>Provider selection, optional API keys, and AI model.</small>
+            </span>
+          </summary>
+          <div class="settings-category-body">
+            <label class="field">
+              <span>API provider</span>
+              <select id="providerSelect">
+                <option value="auto">Auto: user key, public API, cache</option>
+                <option value="stooq">Stooq public market data</option>
+                <option value="coingecko">CoinGecko public crypto data</option>
+                <option value="alphavantage">Alpha Vantage</option>
+                <option value="finnhub">Finnhub</option>
+                <option value="fmp">Financial Modeling Prep</option>
+                <option value="twelvedata">Twelve Data</option>
+                <option value="polygon">Polygon.io</option>
+                <option value="newsapi">NewsAPI</option>
+              </select>
+            </label>
 
-        <label class="field">
-          <span>Data refresh interval</span>
-          <select id="refreshInterval">
-            <option value="manual">Manual only</option>
-            <option value="300">5 minutes</option>
-            <option value="900">15 minutes</option>
-            <option value="1800">30 minutes</option>
-            <option value="3600">1 hour</option>
-          </select>
-        </label>
+            <label class="field">
+              <span>Alpha Vantage API key</span>
+              <input id="alphaKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+            </label>
+            <label class="field">
+              <span>Finnhub API key</span>
+              <input id="finnhubKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+            </label>
+            <label class="field">
+              <span>Financial Modeling Prep API key</span>
+              <input id="fmpKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+            </label>
+            <label class="field">
+              <span>Twelve Data API key</span>
+              <input id="twelveKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+            </label>
+            <label class="field">
+              <span>Polygon.io API key</span>
+              <input id="polygonKey" type="password" autocomplete="off" placeholder="Optional advanced provider">
+            </label>
+            <label class="field">
+              <span>News API key</span>
+              <input id="newsKey" type="password" autocomplete="off" placeholder="Optional news and sentiment source">
+            </label>
+            <label class="field">
+              <span>Optional Hugging Face token</span>
+              <input id="hfToken" type="password" autocomplete="off" placeholder="hf_ token for optional AI insights">
+            </label>
+            <label class="field">
+              <span>Hugging Face chat model</span>
+              <input id="hfModel" type="text" autocomplete="off" placeholder="google/gemma-2-2b-it:fastest">
+              <small>Uses Hugging Face Inference Providers with automatic routing. Change this if your account has a different free/serverless model available.</small>
+            </label>
+            <button class="secondary-action" id="testApiButton" type="button">Test API connection</button>
+          </div>
+        </details>
 
-        <section class="settings-group" aria-labelledby="rankingPrefsTitle">
-          <h3 id="rankingPrefsTitle">Watch priority preferences</h3>
+        <details class="settings-category">
+          <summary>
+            <span>
+              <b>Watch priority</b>
+              <small>Choose what the opportunity monitor should emphasize.</small>
+            </span>
+          </summary>
+          <div class="settings-category-body">
           <label class="field">
             <span>Ranking preference</span>
             <select id="priorityPreference">
@@ -317,10 +334,17 @@
             </select>
             <small>Changes affect watch priority only. They do not create buy, sell, hold, or return recommendations.</small>
           </label>
-        </section>
+          </div>
+        </details>
 
-        <section class="settings-group visual-identity-settings" aria-labelledby="visualIdentityTitle">
-          <h3 id="visualIdentityTitle">Visual identity</h3>
+        <details class="settings-category visual-identity-settings">
+          <summary>
+            <span>
+              <b>Hero image</b>
+              <small>Cover image, custom upload, and accent color sampling.</small>
+            </span>
+          </summary>
+          <div class="settings-category-body">
           <label class="field">
             <span>Hero image preset</span>
             <select id="heroPreset">
@@ -343,10 +367,17 @@
           </label>
           <div class="hero-preview" id="heroPreview" aria-label="Current hero image preview"></div>
           <button class="secondary-action" id="clearHeroImage" type="button">Reset hero image</button>
-        </section>
+          </div>
+        </details>
 
-        <section class="settings-group" aria-labelledby="notificationPrefsTitle">
-          <h3 id="notificationPrefsTitle">Notification preferences</h3>
+        <details class="settings-category">
+          <summary>
+            <span>
+              <b>Notifications</b>
+              <small>Briefs, IPO alerts, opportunity changes, and verification alerts.</small>
+            </span>
+          </summary>
+          <div class="settings-category-body">
           <label class="toggle-field">
             <input id="enableNotifications" type="checkbox">
             <span>Enable notifications</span>
@@ -380,21 +411,32 @@
             </select>
           </label>
           <button class="secondary-action" id="requestNotificationPermission" type="button">Request browser permission</button>
-        </section>
+          </div>
+        </details>
 
-        <p class="prototype-note">
-          Basic app features work without API keys using public online sources where available. API keys are optional and intended for advanced users who want deeper coverage.
-        </p>
+        <details class="settings-category">
+          <summary>
+            <span>
+              <b>Storage and maintenance</b>
+              <small>Local cache, saved settings, and prototype security notes.</small>
+            </span>
+          </summary>
+          <div class="settings-category-body">
+            <p class="prototype-note">
+              Basic app features work without API keys using public online sources where available. API keys are optional and intended for advanced users who want deeper coverage.
+            </p>
 
-        <p class="prototype-note">
-          Prototype security note: API keys are stored locally in your browser. For production, use a secure backend proxy and environment variables.
-        </p>
+            <p class="prototype-note">
+              Prototype security note: API keys are stored locally in your browser. For production, use a secure backend proxy and environment variables.
+            </p>
+
+            <button class="danger-action" id="clearSettingsButton" type="button">Clear saved settings</button>
+            <button class="danger-action" id="clearCacheButton" type="button">Clear cache</button>
+          </div>
+        </details>
 
         <div class="button-row">
           <button class="primary-action" type="submit">Save settings</button>
-          <button class="secondary-action" id="testApiButton" type="button">Test API connection</button>
-          <button class="danger-action" id="clearSettingsButton" type="button">Clear saved settings</button>
-          <button class="danger-action" id="clearCacheButton" type="button">Clear cache</button>
         </div>
       </form>
       <div id="settingsStatus" class="settings-status" aria-live="polite"></div>
@@ -420,7 +462,7 @@
       });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-    <script src="data.js?v=touch-polish-5"></script>
-    <script src="app.js?v=touch-polish-5"></script>
+    <script src="data.js?v=settings-categories-1"></script>
+    <script src="app.js?v=settings-categories-1"></script>
   </body>
 </html>
