@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: global-investment-tracker
+    runtime: node
+    buildCommand: node work/verify.mjs
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_DATA_MODE
+        value: "true"
+      - key: DEFAULT_PROVIDER
+        value: auto
+      - key: CACHE_TTL_SECONDS
+        value: "300"
+      - key: HISTORY_CACHE_TTL_SECONDS
+        value: "3600"
+      - key: RATE_LIMIT_MAX
+        value: "120"

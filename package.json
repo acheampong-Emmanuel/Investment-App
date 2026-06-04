@@ -1,0 +1,16 @@
+{
+  "name": "global-investment-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Country-aware investment research app with public no-key market data and optional advanced providers.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node work/verify.mjs",
+    "check": "node --check app.js && node --check server.js && node work/verify.mjs",
+    "smoke": "node work/smoke-api.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

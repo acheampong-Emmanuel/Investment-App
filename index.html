@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Global Tracker">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Global Investment Tracker</title>
+    <meta
+      name="description"
+      content="Research stocks, ETFs, crypto, indices, bonds, and commodities by country using public APIs and user-provided free-tier keys."
+    >
+    <meta name="theme-color" content="#11110f">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=submenu-ui-1">
+  </head>
+  <body>
+    <div class="phone-frame">
+    <div class="app-shell">
+      <header class="app-header">
+        <div>
+          <h1 id="timeGreeting">Good evening</h1>
+          <p class="subtitle" id="todayDate">Global Investment Tracker</p>
+        </div>
+        <div class="header-actions">
+          <button class="icon-button glass-button" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">◐</button>
+          <button class="icon-button glass-button" id="watchlistJump" type="button" aria-label="Open watchlist" title="Watchlist">☆</button>
+          <button class="avatar-button" id="settingsOpen" type="button" aria-label="Open settings" title="Settings">GI</button>
+        </div>
+      </header>
+
+      <main class="view-stage" id="viewStage">
+        <section class="page-view active home-view" id="homeView" data-page="home" aria-labelledby="homeTitle">
+          <section class="market-hero" id="marketHero" aria-live="polite"></section>
+          <section class="control-panel home-control" aria-label="Market controls">
+            <label class="field">
+              <span>Country or market</span>
+              <select id="countrySelect"></select>
+            </label>
+            <label class="field search-field">
+              <span>Search assets</span>
+              <input id="searchInput" type="search" placeholder="Ticker, name, exchange, country">
+            </label>
+            <button class="primary-action hero-cta" id="exploreCta" type="button">Explore Investments</button>
+          </section>
+          <section class="status-panel" id="statusPanel" aria-live="polite"></section>
+          <section class="trust-brief" id="todayBriefPanel" aria-live="polite"></section>
+          <section class="opportunity-panel" id="opportunityPanel" aria-live="polite"></section>
+          <section class="morning-brief" id="morningBriefPanel" aria-live="polite"></section>
+          <section class="notification-center" id="notificationCenterPanel" aria-live="polite"></section>
+          <section class="insight-card" id="insightCard" aria-live="polite"></section>
+          <section class="overview-grid" id="overviewCards" aria-label="Market overview"></section>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Start here</p>
+              <h2 id="homeTitle">Featured markets</h2>
+            </div>
+          </section>
+          <section class="featured-grid" id="featuredGrid" aria-live="polite"></section>
+          <section class="intelligence-journal" id="journalPanel" aria-live="polite"></section>
+          <section class="home-actions">
+            <button class="secondary-action" type="button" data-page-action="ipos">IPOs</button>
+            <button class="secondary-action" type="button" data-page-action="explore">Markets</button>
+            <button class="secondary-action" type="button" data-page-action="watchlist">Watchlist</button>
+            <button class="secondary-action" type="button" data-page-action="learn">Learn</button>
+            <button class="secondary-action" type="button" data-page-action="diagnostics">Data Sources</button>
+          </section>
+        </section>
+
+        <section class="page-view ipos-view" id="iposView" data-page="ipos" aria-labelledby="iposTitle" hidden>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Primary watch area</p>
+              <h2 id="iposTitle">IPOs</h2>
+            </div>
+            <button class="secondary-action" id="refreshIpoButton" type="button">Refresh checks</button>
+          </section>
+          <section class="ipo-panel" id="ipoPanel" aria-live="polite"></section>
+        </section>
+
+        <section class="page-view explore-view" id="exploreView" data-page="explore" aria-labelledby="exploreTitle" hidden>
+          <section class="market-context" aria-live="polite">
+            <div>
+              <p class="eyebrow" id="marketRegionLabel">Market</p>
+              <h2 id="marketTitle">Select a market</h2>
+              <p id="marketNotes"></p>
+            </div>
+            <div class="context-tags" id="marketTags"></div>
+          </section>
+          <section class="control-panel explore-controls" aria-label="Asset discovery filters">
+            <div class="type-tabs" id="assetTypeTabs" aria-label="Asset type filters"></div>
+            <button class="secondary-action" id="refreshButton" type="button">Refresh data</button>
+          </section>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Investment universe</p>
+              <h2 id="exploreTitle">Markets</h2>
+            </div>
+          </section>
+          <section id="assetGrid" class="asset-grid" aria-live="polite"></section>
+        </section>
+
+        <section class="page-view watchlist-view" id="watchlistView" data-page="watchlist" aria-labelledby="watchlistTitle" hidden>
+          <section class="section-title" id="watchlistTop">
+            <div>
+              <p class="eyebrow">Saved assets</p>
+              <h2 id="watchlistTitle">Watchlist</h2>
+            </div>
+            <button class="danger-action" id="clearWatchlist" type="button">Clear watchlist</button>
+          </section>
+          <section class="watchlist-panel" id="watchlistPanel"></section>
+        </section>
+
+        <section class="page-view compare-view" id="compareView" data-page="compare" aria-labelledby="compareTitle" hidden>
+          <section class="section-title" id="comparisonTop">
+            <div>
+              <p class="eyebrow">Visual comparison</p>
+              <h2 id="compareTitle">Compare</h2>
+            </div>
+            <button class="secondary-action" id="clearCompare" type="button">Clear</button>
+          </section>
+          <section class="compare-panel" id="comparePanel"></section>
+        </section>
+
+        <section class="page-view brokers-view" id="brokersView" data-page="brokers" aria-labelledby="brokersTitle" hidden>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Country-aware research</p>
+              <h2 id="brokersTitle">Where to Buy</h2>
+            </div>
+          </section>
+          <section class="broker-section" id="brokerPagePanel"></section>
+        </section>
+
+        <section class="page-view diagnostics-view" id="diagnosticsView" data-page="diagnostics" aria-labelledby="diagnosticsTitle" hidden>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Technical status</p>
+              <h2 id="diagnosticsTitle">Data Sources</h2>
+            </div>
+          </section>
+          <section class="diagnostics-panel" id="diagnosticsPanel" aria-live="polite"></section>
+          <section class="source-explorer" id="sourceExplorerPanel" aria-live="polite"></section>
+        </section>
+
+        <section class="page-view learn-view" id="learnView" data-page="learn" aria-labelledby="learnTitle" hidden>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Investor education</p>
+              <h2 id="learnTitle">Learn</h2>
+            </div>
+          </section>
+          <section class="learn-panel" id="learnPanel"></section>
+        </section>
+
+        <section class="page-view ai-view" id="aiView" data-page="ai" aria-labelledby="aiTitle" hidden>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Optional analysis</p>
+              <h2 id="aiTitle">AI Insight</h2>
+            </div>
+          </section>
+          <section class="ai-section" id="aiPagePanel"></section>
+        </section>
+
+        <section class="page-view settings-view" id="settingsView" data-page="settings" aria-labelledby="settingsTitle" hidden>
+          <section class="section-title">
+            <div>
+              <p class="eyebrow">Power user controls</p>
+              <h2 id="settingsTitle">Settings</h2>
+            </div>
+            <button class="primary-action" id="settingsPageOpen" type="button">Advanced Settings</button>
+          </section>
+          <section class="settings-landing">
+            <p>Basic app features work without API keys using public online sources where available. API keys are optional for deeper coverage.</p>
+            <div class="settings-shortcuts">
+              <button class="secondary-action" type="button" data-page-action="diagnostics">Data Sources</button>
+              <button class="secondary-action" type="button" data-page-action="brokers">Where to Buy</button>
+              <button class="secondary-action" type="button" data-page-action="ai">AI Insight</button>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="footer-disclaimer">
+        This app is for education and research only. It does not provide financial, investment, tax, or legal advice.
+        Market data may be delayed, incomplete, or unavailable. Verify information with official sources before making decisions.
+      </footer>
+
+      <nav class="bottom-nav" aria-label="Mobile navigation">
+        <button class="nav-item active" type="button" data-page="home"><span>T</span><strong>Today</strong></button>
+        <button class="nav-item" type="button" data-page="ipos"><span>I</span><strong>IPOs</strong></button>
+        <button class="nav-item" type="button" data-page="explore"><span>M</span><strong>Markets</strong></button>
+        <button class="nav-item" type="button" data-page="watchlist"><span>W</span><strong>Watchlist</strong></button>
+        <button class="nav-item" type="button" data-page="learn"><span>L</span><strong>Learn</strong></button>
+        <button class="nav-item" type="button" data-page="diagnostics"><span>D</span><strong>Sources</strong></button>
+        <button class="nav-item" type="button" data-page="settings"><span>S</span><strong>Settings</strong></button>
+      </nav>
+    </div>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop" hidden></div>
+
+    <aside class="detail-drawer" id="detailDrawer" aria-label="Asset detail panel" aria-modal="true" role="dialog" hidden>
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">Asset details</p>
+          <h2 id="detailTitle">Asset</h2>
+        </div>
+        <button class="icon-button" id="detailClose" type="button" aria-label="Close asset details">×</button>
+      </div>
+      <div id="detailContent"></div>
+    </aside>
+
+    <aside class="settings-drawer" id="settingsDrawer" aria-label="Settings panel" aria-modal="true" role="dialog" hidden>
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">Power user controls</p>
+          <h2>Advanced Settings</h2>
+        </div>
+        <button class="icon-button" id="settingsClose" type="button" aria-label="Close settings">×</button>
+      </div>
+
+      <form id="settingsForm" class="settings-form">
+        <label class="field">
+          <span>API provider</span>
+          <select id="providerSelect">
+            <option value="auto">Auto: user key, public API, cache</option>
+            <option value="stooq">Stooq public market data</option>
+            <option value="coingecko">CoinGecko public crypto data</option>
+            <option value="alphavantage">Alpha Vantage</option>
+            <option value="finnhub">Finnhub</option>
+            <option value="fmp">Financial Modeling Prep</option>
+            <option value="twelvedata">Twelve Data</option>
+            <option value="polygon">Polygon.io</option>
+            <option value="newsapi">NewsAPI</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Alpha Vantage API key</span>
+          <input id="alphaKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+        </label>
+        <label class="field">
+          <span>Finnhub API key</span>
+          <input id="finnhubKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+        </label>
+        <label class="field">
+          <span>Financial Modeling Prep API key</span>
+          <input id="fmpKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+        </label>
+        <label class="field">
+          <span>Twelve Data API key</span>
+          <input id="twelveKey" type="password" autocomplete="off" placeholder="Prototype-only local storage">
+        </label>
+        <label class="field">
+          <span>Polygon.io API key</span>
+          <input id="polygonKey" type="password" autocomplete="off" placeholder="Optional advanced provider">
+        </label>
+        <label class="field">
+          <span>News API key</span>
+          <input id="newsKey" type="password" autocomplete="off" placeholder="Optional news and sentiment source">
+        </label>
+        <label class="field">
+          <span>Optional Hugging Face token</span>
+          <input id="hfToken" type="password" autocomplete="off" placeholder="hf_ token for optional AI insights">
+        </label>
+        <label class="field">
+          <span>Hugging Face chat model</span>
+          <input id="hfModel" type="text" autocomplete="off" placeholder="google/gemma-2-2b-it:fastest">
+          <small>Uses Hugging Face Inference Providers with automatic routing. Change this if your account has a different free/serverless model available.</small>
+        </label>
+
+        <label class="field">
+          <span>Theme setting</span>
+          <select id="themeSetting">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Default country</span>
+          <select id="defaultCountry"></select>
+        </label>
+
+        <label class="field">
+          <span>Cache duration</span>
+          <select id="cacheDuration">
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600">1 hour</option>
+            <option value="21600">6 hours</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Data refresh interval</span>
+          <select id="refreshInterval">
+            <option value="manual">Manual only</option>
+            <option value="300">5 minutes</option>
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600">1 hour</option>
+          </select>
+        </label>
+
+        <section class="settings-group" aria-labelledby="rankingPrefsTitle">
+          <h3 id="rankingPrefsTitle">Watch priority preferences</h3>
+          <label class="field">
+            <span>Ranking preference</span>
+            <select id="priorityPreference">
+              <option value="balanced">Balanced opportunity monitoring</option>
+              <option value="ghana">Prioritize Ghana</option>
+              <option value="global">Prioritize Global</option>
+              <option value="etfs">Prioritize ETFs</option>
+              <option value="ipos">Prioritize IPOs</option>
+              <option value="lowerRisk">Prioritize Lower Risk</option>
+              <option value="growth">Prioritize Higher Growth Potential</option>
+              <option value="usd">Prioritize USD Assets</option>
+              <option value="income">Prioritize Income-Producing Assets</option>
+            </select>
+            <small>Changes affect watch priority only. They do not create buy, sell, hold, or return recommendations.</small>
+          </label>
+        </section>
+
+        <section class="settings-group visual-identity-settings" aria-labelledby="visualIdentityTitle">
+          <h3 id="visualIdentityTitle">Visual identity</h3>
+          <label class="field">
+            <span>Hero image preset</span>
+            <select id="heroPreset">
+              <option value="cover">Orange cover reference</option>
+              <option value="mist">Mist studio</option>
+              <option value="amber">Amber motion</option>
+              <option value="sage">Sage motion</option>
+              <option value="gold">Gold motion</option>
+              <option value="custom">Custom image</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Hero image URL</span>
+            <input id="heroImageUrl" type="url" autocomplete="off" placeholder="https://... image link">
+            <small>Use an image URL or upload below. The accent color is sampled from the image when the browser allows it.</small>
+          </label>
+          <label class="field">
+            <span>Upload hero image</span>
+            <input id="heroImageFile" type="file" accept="image/*">
+          </label>
+          <div class="hero-preview" id="heroPreview" aria-label="Current hero image preview"></div>
+          <button class="secondary-action" id="clearHeroImage" type="button">Reset hero image</button>
+        </section>
+
+        <section class="settings-group" aria-labelledby="notificationPrefsTitle">
+          <h3 id="notificationPrefsTitle">Notification preferences</h3>
+          <label class="toggle-field">
+            <input id="enableNotifications" type="checkbox">
+            <span>Enable notifications</span>
+          </label>
+          <label class="toggle-field">
+            <input id="morningBriefNotifications" type="checkbox">
+            <span>Morning brief notifications</span>
+          </label>
+          <label class="toggle-field">
+            <input id="ipoNotifications" type="checkbox">
+            <span>IPO opening, closing, and listing day alerts</span>
+          </label>
+          <label class="toggle-field">
+            <input id="opportunityNotifications" type="checkbox">
+            <span>Opportunity, signal, and watch priority changes</span>
+          </label>
+          <label class="toggle-field">
+            <input id="verificationAlerts" type="checkbox">
+            <span>Verification required and data refresh alerts</span>
+          </label>
+          <label class="field">
+            <span>Morning brief time</span>
+            <input id="notificationTime" type="time" value="07:00">
+          </label>
+          <label class="field">
+            <span>Notification frequency</span>
+            <select id="notificationFrequency">
+              <option value="daily">Daily brief plus important changes</option>
+              <option value="important">Important changes only</option>
+              <option value="weekly">Weekly summary only</option>
+            </select>
+          </label>
+          <button class="secondary-action" id="requestNotificationPermission" type="button">Request browser permission</button>
+        </section>
+
+        <p class="prototype-note">
+          Basic app features work without API keys using public online sources where available. API keys are optional and intended for advanced users who want deeper coverage.
+        </p>
+
+        <p class="prototype-note">
+          Prototype security note: API keys are stored locally in your browser. For production, use a secure backend proxy and environment variables.
+        </p>
+
+        <div class="button-row">
+          <button class="primary-action" type="submit">Save settings</button>
+          <button class="secondary-action" id="testApiButton" type="button">Test API connection</button>
+          <button class="danger-action" id="clearSettingsButton" type="button">Clear saved settings</button>
+          <button class="danger-action" id="clearCacheButton" type="button">Clear cache</button>
+        </div>
+      </form>
+      <div id="settingsStatus" class="settings-status" aria-live="polite"></div>
+    </aside>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+    <script>
+      window.__startupErrors = [];
+      window.addEventListener("error", function (event) {
+        window.__startupErrors.push({
+          message: event.message,
+          source: event.filename,
+          line: event.lineno,
+          column: event.colno
+        });
+      });
+      window.addEventListener("unhandledrejection", function (event) {
+        window.__startupErrors.push({
+          message: event.reason && event.reason.message ? event.reason.message : String(event.reason),
+          source: "promise"
+        });
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="data.js?v=submenu-ui-1"></script>
+    <script src="app.js?v=submenu-ui-1"></script>
+  </body>
+</html>
