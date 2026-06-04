@@ -76,9 +76,12 @@
 
   const modalManager = {
     open(drawer) {
-      byId("modalBackdrop").hidden = false;
+      const backdrop = byId("modalBackdrop");
+      backdrop.hidden = false;
       drawer.hidden = false;
-      transitionManager.reveal(byId("modalBackdrop"));
+      backdrop.classList.add("is-revealed");
+      drawer.classList.add("is-revealed");
+      transitionManager.reveal(backdrop);
       transitionManager.reveal(drawer);
     },
     closeAll() {
@@ -91,8 +94,12 @@
   const drawerManager = {
     open(id) {
       const drawer = byId(id);
+      glassSelectManager.closeAll();
+      drawer.scrollTop = 0;
       modalManager.open(drawer);
+      drawer.scrollTop = 0;
       window.setTimeout(() => {
+        drawer.scrollTop = 0;
         drawer.querySelector("button, input, select, a")?.focus();
       }, motionSystem.duration(designTokens.durationNormal));
     },
@@ -419,7 +426,7 @@
     byId("settingsClose").addEventListener("click", closeDrawers);
     byId("detailClose").addEventListener("click", closeDrawers);
     byId("modalBackdrop").addEventListener("click", closeDrawers);
-    byId("watchlistJump").addEventListener("click", () => pageRouter.goTo("watchlist"));
+    byId("watchlistJump")?.addEventListener("click", () => pageRouter.goTo("watchlist"));
     byId("exploreCta").addEventListener("click", () => pageRouter.goTo("explore"));
     byId("settingsPageOpen").addEventListener("click", openSettings);
     document.querySelectorAll("[data-page-action]").forEach((button) => {

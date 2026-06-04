@@ -3569,3 +3569,467 @@ details[open].why-panel,
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
+
+/* Final touchscreen polish and consistency audit layer */
+:root,
+[data-theme="dark"],
+[data-theme="light"] {
+  --touch-target: 52px;
+  --touch-target-sm: 46px;
+  --glass-radius: 28px;
+  --glass-radius-lg: 34px;
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.045)), rgba(17, 17, 16, 0.76);
+  --glass-shadow: 0 18px 44px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html,
+body,
+.phone-frame,
+.app-shell {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body,
+.view-stage,
+.detail-drawer,
+.settings-drawer,
+.glass-select-menu,
+.featured-grid,
+.type-tabs,
+.range-tabs,
+.context-tags,
+.status-panel,
+.ticker-orbs,
+.market-hero > .ticker-orbs {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.app-shell {
+  position: relative;
+  padding-bottom: calc(122px + env(safe-area-inset-bottom));
+}
+
+.app-header {
+  gap: 14px;
+}
+
+.header-actions {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.icon-button,
+.avatar-button,
+.glass-button,
+.primary-action,
+.secondary-action,
+.danger-action,
+.tab-button,
+.range-button,
+.nav-item,
+.glass-select-button,
+.glass-select-option,
+.chevron-button,
+.link-button,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+.icon-button,
+.avatar-button,
+.glass-button,
+.chevron-button {
+  min-width: var(--touch-target-sm);
+  min-height: var(--touch-target-sm);
+}
+
+.primary-action,
+.secondary-action,
+.danger-action,
+.tab-button,
+.range-button,
+.glass-select-button,
+.field input,
+.field select {
+  min-height: var(--touch-target);
+}
+
+.card-actions,
+.button-row,
+.settings-shortcuts,
+.range-tabs,
+.type-tabs,
+.context-tags {
+  gap: 10px;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.button-row > button,
+.card-actions > button,
+.settings-shortcuts > button {
+  min-width: 0;
+}
+
+.control-panel,
+.market-context,
+.overview-card,
+.asset-card,
+.compare-panel,
+.watchlist-panel,
+.chart-card,
+.stats-section,
+.broker-section,
+.ai-section,
+.risk-note,
+.portfolio-total,
+.opportunity-panel,
+.morning-brief,
+.notification-center,
+.source-explorer,
+.learn-panel,
+.settings-landing,
+.broker-card,
+.watch-card,
+.insight-card {
+  border-radius: var(--glass-radius);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.asset-card,
+.watch-card,
+.opportunity-card,
+.overview-card,
+.featured-card,
+.broker-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.asset-card *,
+.watch-card *,
+.opportunity-card *,
+.overview-card *,
+.featured-card *,
+.broker-card *,
+.drawer-header *,
+.section-title * {
+  min-width: 0;
+}
+
+.asset-card h3,
+.watch-card h3,
+.featured-card strong,
+.section-title h2,
+.market-context h2,
+.drawer-header h2 {
+  overflow-wrap: anywhere;
+}
+
+.asset-card p,
+.watch-card p,
+.opportunity-card p,
+.data-message,
+.prototype-note,
+.settings-landing p {
+  line-height: 1.42;
+}
+
+.chart-card,
+.stats-section,
+.compare-panel,
+.portfolio-total {
+  overflow: hidden;
+}
+
+.chart-card canvas,
+canvas {
+  max-width: 100%;
+}
+
+.featured-grid,
+.type-tabs,
+.range-tabs,
+.context-tags,
+.market-hero > .ticker-orbs {
+  overscroll-behavior-x: contain;
+}
+
+.featured-grid {
+  scroll-padding-inline: 2px;
+}
+
+.market-hero {
+  min-height: min(680px, calc(100svh - 108px));
+  max-height: none;
+}
+
+.market-hero::before {
+  right: 12px;
+  width: min(206px, 54%);
+}
+
+.hero-cover-copy {
+  left: clamp(18px, 5vw, 32px);
+  right: clamp(18px, 5vw, 32px);
+}
+
+.hero-cover-actions,
+.hero-status-row {
+  gap: 10px;
+}
+
+.hero-cover-actions button,
+.hero-status-row button {
+  min-width: var(--touch-target-sm);
+  min-height: var(--touch-target-sm);
+}
+
+.market-hero > .ticker-orbs {
+  padding-bottom: 2px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  max-width: calc(100% - 36px);
+  overflow: hidden;
+}
+
+.ticker-orb {
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.market-hero > .ticker-orbs .ticker-orb {
+  min-width: 0;
+  padding-inline: 4px;
+}
+
+.status-panel {
+  min-height: var(--touch-target-sm);
+  align-items: center;
+}
+
+.bottom-nav {
+  z-index: 70;
+  width: min(420px, calc(100% - 18px));
+  padding: 8px;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.nav-item {
+  min-height: 56px;
+  padding: 7px 1px;
+}
+
+.nav-item span {
+  font-size: clamp(0.94rem, 3vw, 1.08rem);
+}
+
+.nav-item strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(0.48rem, 1.7vw, 0.58rem);
+}
+
+.detail-drawer,
+.settings-drawer {
+  z-index: 90;
+  overscroll-behavior: contain;
+  max-height: min(92svh, calc(100svh - env(safe-area-inset-top)));
+  padding-bottom: calc(22px + env(safe-area-inset-bottom));
+}
+
+.drawer-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(20px) saturate(1.14);
+  -webkit-backdrop-filter: blur(20px) saturate(1.14);
+}
+
+.modal-backdrop {
+  z-index: 80;
+}
+
+.settings-form,
+#detailContent {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.glass-select {
+  isolation: isolate;
+}
+
+.glass-select-button {
+  user-select: none;
+}
+
+.glass-select-menu {
+  max-height: min(320px, calc(100svh - 190px));
+  overscroll-behavior: contain;
+  transform-origin: top center;
+}
+
+.glass-select.open .glass-select-menu {
+  animation: glassMenuIn var(--duration-normal, 220ms) var(--ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.settings-drawer .glass-select-menu,
+.detail-drawer .glass-select-menu {
+  max-height: min(300px, 44svh);
+}
+
+.glass-select-option {
+  min-height: 48px;
+}
+
+.primary-action:focus-visible,
+.secondary-action:focus-visible,
+.danger-action:focus-visible,
+.tab-button:focus-visible,
+.range-button:focus-visible,
+.nav-item:focus-visible,
+.glass-select-button:focus-visible,
+.glass-select-option:focus-visible,
+.icon-button:focus-visible,
+.avatar-button:focus-visible,
+.field input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 74%, white);
+  outline-offset: 3px;
+}
+
+.primary-action:active,
+.secondary-action:active,
+.danger-action:active,
+.tab-button:active,
+.range-button:active,
+.nav-item:active,
+.glass-select-button:active,
+.glass-select-option:active,
+.icon-button:active,
+.avatar-button:active,
+.chevron-button:active {
+  transform: scale(0.97);
+}
+
+@keyframes glassMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .asset-card:hover,
+  .asset-card:focus-within,
+  .featured-card:hover,
+  .broker-card:hover,
+  .opportunity-card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .app-shell {
+    padding-inline: 12px;
+  }
+
+  .app-header h1 {
+    font-size: clamp(1.18rem, 7vw, 1.42rem);
+  }
+
+  .subtitle {
+    max-width: 18ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .market-hero {
+    min-height: min(648px, calc(100svh - 100px));
+    border-radius: 30px;
+  }
+
+  .hero-cover-copy h2 {
+    font-size: clamp(2.5rem, 15vw, 4rem);
+  }
+
+  .hero-cover-copy {
+    bottom: 116px;
+  }
+
+  .market-hero > .market-orb {
+    top: 126px;
+    right: 16px;
+  }
+
+  .bottom-nav {
+    width: min(420px, calc(100% - 12px));
+  }
+
+  .button-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1180px) {
+  .phone-frame {
+    width: min(100%, 540px);
+  }
+
+  .app-shell,
+  [data-theme="light"] .app-shell {
+    width: min(100%, 540px);
+  }
+
+  .bottom-nav {
+    width: min(500px, calc(100% - 28px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-select.open .glass-select-menu {
+    animation: none !important;
+  }
+
+  .primary-action:active,
+  .secondary-action:active,
+  .danger-action:active,
+  .tab-button:active,
+  .range-button:active,
+  .nav-item:active,
+  .glass-select-button:active,
+  .glass-select-option:active,
+  .icon-button:active,
+  .avatar-button:active,
+  .chevron-button:active {
+    transform: none !important;
+  }
+}

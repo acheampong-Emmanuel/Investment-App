@@ -1,4 +1,4 @@
-const STATIC_CACHE = "market-watch-static-v3";
+const STATIC_CACHE = "market-watch-static-v8";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -49,7 +49,20 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.method !== "GET") return;
 
+  if (/\.(css|js|webmanifest)$/i.test(url.pathname)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request) || caches.match(url.pathname.replace(/^\//, "./")))
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cached) => cached || fetch(event.request))
+    caches.match(event.request, { ignoreSearch: false }).then((cached) => cached || fetch(event.request))
   );
 });
