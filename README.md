@@ -72,28 +72,6 @@ work/smoke-api.mjs  Backend smoke tests
 
 ## Backend Routes
 
-- `GET /api/health`
-- `GET /api/countries`
-- `GET /api/market-overview?country=US`
-- `GET /api/search?q=AAPL`
-- `GET /api/quote?symbol=AAPL`
-- `GET /api/history?symbol=AAPL&range=1M`
-- `GET /api/fundamentals?symbol=AAPL`
-- `GET /api/brokers?country=US`
-- `POST /api/watchlist/refresh`
-- `POST /api/compare`
-- `GET /api/news?symbol=AAPL`
-- `POST /api/ai-insight`
-- `GET /api/huggingface/status`
-- `POST /api/huggingface/connect`
-- `POST /api/huggingface/test`
-- `POST /api/huggingface/disconnect`
-- `POST /api/ai/analyze`
-- `POST /api/ai/recommend`
-- `POST /api/ai/risk-score`
-- `POST /api/ai/summarize-market`
-- `GET /api/diagnostics`
-- `GET /api/proxy?url=...`
 
 All API routes return consistent JSON and avoid exposing secrets.
 
